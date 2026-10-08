@@ -8,7 +8,7 @@ pragma solidity ^0.8.10;
 // Definicion de centro medico
 struct Centro {
     address direccion;
-    string descripcion;
+    string nombre;
 }
 
 // Definicion de prueba diagnostica
@@ -20,7 +20,7 @@ struct PruebaDiagnostica {
     address     centroRealizador;
     uint256     timestampAlta;
     uint256     timestampBaja;
-    uint16      prioridad;
+    uint16      maximoDiasDemora;
     bool        activa;
     uint16      motivoDeBaja;
     
