@@ -11,6 +11,7 @@ Las funcionalidades que ha de soportar son:
   - Baja de paciente de la lista.
   - Listar Pruebas por paciente
   - Listar Pruebas por centro
+  - Obtener una prueba.
   - Mostrar histórico de eventos de una prueba
   - Crear Redireccion de paciente (BONUS)
   - Aceptar / Rechazar Redireccion de paciente (BONUS)
@@ -86,7 +87,8 @@ Se decide crear una arquitectura de proxy. En ella habrán varios contratos cont
   - Contrato Implementacion de la logica de negocio
   - Interface IEvents con los eventos
   - Interface IFunctions con las funciones básicas a implementar en Proxy y las diferentes implementaciones.
-
+  - Contrato ListaEsperaTypes con las definiciones de estructuras necesarias. Así podemos reaprovecharlas en las interfaces, storage e implementacion haciendo un import.
+  - Contrato ListaEsperaCommonFunctions con las funciones auxiliares clasicas como por ejemplo manejo de strings ( asi evitamos escribirlas n veces)
 
   NOTA: Ejemplos de interfaces:
 
@@ -132,7 +134,7 @@ Propuesta: hacer una lista de address
 ```solidity
 struct Centro {
     address direccion;
-    string descripcion;
+    string  nombre;
 }
 
 Centro[] public centros;
@@ -202,6 +204,7 @@ Se hará una estructura  de solicitud de redirección
 struct SolicitiudRedireccion {
     uint256 id;
     address centroOrigen;
+    address centroDestino;
     string idPaciente;
 }
 ```
