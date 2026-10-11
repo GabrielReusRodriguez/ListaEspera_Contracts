@@ -3,6 +3,7 @@ pragma solidity ^0.8.10;
 
 import "./ListaEsperaTypes.sol";
 import "./ListaEsperaCommonFunctions.sol";
+import "./ListaEsperaStorageCentros.sol";
 
 contract ListaEsperaStorage{
 
@@ -25,8 +26,9 @@ contract ListaEsperaStorage{
 
     /* 
     Inventarios de centros. Se decide hacerlo como array en vez de hashtable ya que se ha de listar muchas veces y se calcula que habrán como mucho  50 centros?
-    */
     Centro[] private centros;
+    */
+    address private gestorCentros;
 
     // Para cada idPrueba, obtenemos los datos enteros de la PruebaDiagnostica
     mapping ( uint256 => PruebaDiagnostica) private pruebasDiagnosticas;
@@ -90,7 +92,7 @@ contract ListaEsperaStorage{
     }
 
     // Funciones sobre los centros ****************************************************************************
-
+    /*
     //Getters / Setters de los centros.
     function getCentros() public view returns (Centro[] memory) {
         return centros;       
@@ -191,7 +193,7 @@ contract ListaEsperaStorage{
         }
         return false;
     }
-
+    */
     // Funciones sobre las pruebas diagnosticas ******************************************************************************************
     function existePrueba(uint256 _idPrueba) public view returns (bool) {
         if (pruebasDiagnosticas[_idPrueba].idPrueba != 0){
@@ -221,7 +223,7 @@ contract ListaEsperaStorage{
         require(isEmptyString(_idPaciente) == false, "El id del paciente no puede estar vacio");
         require(isEmptyString(_diagnostico) == false, "El diagnostico no puede estar vacio");
         require(isEmptyString(_codigoPrueba) == false, "El codigo de prueba no puede estar vacio");
-        require(_esCentroActivo(_sender), "NO eres un centro permitido para dar de alta un paciente");
+        //require(_esCentroActivo(_sender), "NO eres un centro permitido para dar de alta un paciente");
         require(_maximoDiasDemora > 0, "No se puede agregar a la lista de espera una prueba  con demora maxima 0 dias");
         require(timeDiffInDays({_newer: block.timestamp ,_older: _timestampAlta }) < 365, "No se pueden agregar pruebas de hace mas de un anyo");
         // Check que el paciente no tenga la misma prueba solicitada con el mismo diaagnostico.
@@ -280,8 +282,8 @@ contract ListaEsperaStorage{
     // Funciones sobre redirecciones *********************************************************************************************************
 
     function nuevaRedireccion(address _sender, uint256 _idPrueba, address _centroDestino ) public {
-        require(_esCentroActivo(_sender), "El emisor no es un centro valido para redireccionar");
-        require(_esCentroActivo(_centroDestino), "El destino no es un centro activo o valido");
+        //require(_esCentroActivo(_sender), "El emisor no es un centro valido para redireccionar");
+        //require(_esCentroActivo(_centroDestino), "El destino no es un centro activo o valido");
         require(_sender != _centroDestino, "El origen y el destino no pueden ser el mismo centro");
         require(pruebasDiagnosticas[_idPrueba].idPrueba != 0, "La prueba no existe");
         require(pruebasDiagnosticas[_idPrueba].activa  == true, "La prueba no esta activa");
@@ -307,7 +309,7 @@ contract ListaEsperaStorage{
     }
 
     function _rechazaRedireccion(address _sender, PruebaDiagnostica storage _prueba) internal {
-        require(_esCentroActivo(_sender), "No eres un centro valido para rechazar la redireccion");
+        //require(_esCentroActivo(_sender), "No eres un centro valido para rechazar la redireccion");
         require(_prueba.propuestaRedireccion, "No consta ninguna propuesta de redireccion");
         require(_prueba.centroDestinoRedireccion == _sender, "No eres el centro destino, no puedes rechazar la redireccion");
         _prueba.centroDestinoRedireccion = address(0);
@@ -324,7 +326,7 @@ contract ListaEsperaStorage{
     }
 
     function _aceptaRedireccion(address _sender, PruebaDiagnostica storage _prueba) internal {
-        require(_esCentroActivo(_sender), "No eres un centro valido para aceptar la redireccion");
+        //require(_esCentroActivo(_sender), "No eres un centro valido para aceptar la redireccion");
         require(_prueba.propuestaRedireccion, "No consta ninguna propuesta de redireccion");
         require(_prueba.centroDestinoRedireccion == _sender, "No eres el centro destino, no puedes aceptar la redireccion");        
         _prueba.centroRealizador = _sender;
