@@ -9,6 +9,7 @@ pragma solidity ^0.8.10;
 struct Centro {
     address direccion;
     string nombre;
+    bool activo;
 }
 
 // Definicion de prueba diagnostica

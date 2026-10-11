@@ -54,8 +54,8 @@ contract ListaEsperaStorage{
         return admin;
     }
 
-    function setAdmin(address _admin) public {
-        require (msg.sender == admin, "NO se te permite cambiar el admin");
+    function setAdmin(address _sender, address _admin) public {
+        require (_sender == admin, "NO se te permite cambiar el admin");
         require(_admin != address(0), "La nueva direccion NO ha de estar en blanco");
 
         admin = _admin;
@@ -66,24 +66,24 @@ contract ListaEsperaStorage{
         return aseguradora;
     }
 
-    function setAseguradora(address _aseguradora) public {
-        require (msg.sender == admin, "NO se te permite cambiar el admin");
+    function setAseguradora(address _sender, address _aseguradora) public {
+        require (_sender == admin, "NO se te permite cambiar el admin");
         require(_aseguradora != address(0), "La nueva direccion NO ha de estar en blanco");
 
         aseguradora = _aseguradora;
     }
 
     // Funciones para activar y desactivar  el contrato ************************************************************************
-    function enable() public {
-        require (msg.sender == admin , "Solo el admin puede activar el contrato");
+    function enable(address _sender) public {
+        require (_sender == admin , "Solo el admin puede activar el contrato");
         require (activo == false, "El contrato ya esta activo");
 
         activo = true;
 
     }
 
-    function disable() public {
-        require (msg.sender == admin , "Solo el admin puede activar el contrato");
+    function disable(address _sender) public {
+        require (_sender == admin , "Solo el admin puede activar el contrato");
         require (activo, "El contrato ya esta desactivado");
 
         activo = false;
@@ -105,24 +105,91 @@ contract ListaEsperaStorage{
         return false;
     }
 
-    function nuevoCentro( address _nuevoCentroAddress, string calldata _nuevoCentroNombre ) public {
+    function nuevoCentro( address _sender, address _nuevoCentroAddress, string calldata _nuevoCentroNombre ) public {
         require(activo, "El Storage no esta activo");
-        require (msg.sender == aseguradora, "Solo la aseguradora puede gestionar los centros");
+        require (_sender == aseguradora, "Solo la aseguradora puede gestionar los centros");
         require(_nuevoCentroAddress != address(0), "La nueva direccion NO ha de estar en blanco");
-        require(isEmptyString(_nuevoCentroNombre) == false, "Has de informar el nombr edel centro");
+        require(isEmptyString(_nuevoCentroNombre) == false, "Has de informar el nombre edel centro");
         // Require que no exista ya el centro.
         require(_checkIfCentroExiste(_nuevoCentroAddress) == false, "EL centro que intentas agregar ya esta en la lista");
 
-        Centro memory centro  = Centro(_nuevoCentroAddress, _nuevoCentroNombre);
+        Centro memory centro  = Centro(_nuevoCentroAddress, _nuevoCentroNombre, true);
         centros.push(centro);
     }
 
-    function modificaCentro(address _centroAddress, string calldata _nuevoNombre) public {
-        //TODO
+    function modificaCentro(address _sender, address _centroAddress, string calldata _nuevoNombre) public {
+        require(activo, "El Storage no esta activo");
+        require(_sender == aseguradora, "Solo la aseguradora puede gestionar los centros");
+        require(isEmptyString(_nuevoNombre) == false, "Has de informar el nombre del centro");
+        require(_checkIfCentroExiste(_centroAddress) == false, "EL centro que intentas agregar NO esta en la lista");
+        
+        for ( uint i = 0; i < centros.length; i++) {
+            if (centros[i].direccion == _centroAddress) {
+                centros[i].nombre = _nuevoNombre;
+                break;
+            }
+        }
     }
 
-    function eliminaCentro(address _centroAddress) public {
-        //TODO
+    function activaCentro(address _sender, address _centroAddress) public {
+        require(activo, "El Storage no esta activo");
+        require(_sender == aseguradora, "Solo la aseguradora puede gestionar los centros");
+        require(_checkIfCentroExiste(_centroAddress) == false, "EL centro que intentas agregar NO esta en la lista");
+        
+        for ( uint i = 0; i < centros.length; i++) {
+            centros[i].activo = true;
+            break;
+        }
+    }
+
+    function desactivaCentro(address _sender, address _centroAddress) public {
+        require(activo, "El Storage no esta activo");
+        require(_sender == aseguradora, "Solo la aseguradora puede gestionar los centros");
+        require(_checkIfCentroExiste(_centroAddress) == false, "EL centro que intentas agregar NO esta en la lista");
+
+        // requiere que el centro no tenga ninguna derivacion activa ni ni tampoco solicitudes pendientes de responder.
+        require( _esCentroConPacientesPendientes(_centroAddress) == true, "El centro aun no puede ser elminiado , ha de revisar sus pruebas");    
+        for ( uint i = 0; i < centros.length; i++) {
+            centros[i].activo = false;
+            break;
+        }    
+    }
+
+    function _esCentroConPacientesPendientes(address _centroAddress) internal view returns (bool){
+        // Si tiene derivaciones pendientes, NO es eliminable, el  usuario ha de rechazarlas primero.        
+        if (solicitudesRedirecciones[_centroAddress].length == 0) {
+            // Check si tiene alguna prueba pendiente de tramitar, si fuera el caso NO es desactivable, primero ha de atender al paciente o redireccionarlo.
+            uint256[] memory _idsPrueba = pruebasPorCentro[_centroAddress];
+            for (uint i = 0 ; i < _idsPrueba.length; i++) {
+                if (pruebasDiagnosticas[_idsPrueba[i]].activa == true){
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+
+    function _esCentroActivo(address _centroAddress) internal view returns  (bool) {
+        require(_centroAddress != address(0), "La direccion enviada es vacia");
+
+        for (uint i = 0; i < centros.length; i++) {
+            if (centros[i].direccion == _centroAddress) {
+                return centros[i].activo;
+            }
+        }
+        return false;
+    }
+
+   // Comprueba que la direccion esté en la lista de centros válidos.
+    function _existeCentro(address _centro) internal view returns(bool) {
+        for(uint16 i = 0; i < centros.length; i++) {
+            if (centros[i].direccion == _centro) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Funciones sobre las pruebas diagnosticas ******************************************************************************************
@@ -137,8 +204,11 @@ contract ListaEsperaStorage{
         require(nextIdPrueba > 0, "No hay registradas ninguna  prueba");
         return pruebasDiagnosticas[_idPrueba];
     }
+
+    // RECUERDA!!! el msg.sender será el contrato de implementacion por lo que siempre hay que pasar el address del wallet que lo ejecuta.
     // Creo y añado una prueba diagnostica a la lista de espera.
-    function nuevaPruebaDiagnostica(
+    function altaPruebaDiagnostica(
+        address _sender,
         string calldata _idPaciente, 
         string calldata _diagnostico,
         string calldata _codigoPrueba,
@@ -151,7 +221,7 @@ contract ListaEsperaStorage{
         require(isEmptyString(_idPaciente) == false, "El id del paciente no puede estar vacio");
         require(isEmptyString(_diagnostico) == false, "El diagnostico no puede estar vacio");
         require(isEmptyString(_codigoPrueba) == false, "El codigo de prueba no puede estar vacio");
-        require(_esCentroValido(msg.sender), "NO eres un centro permitido para dar de alta un paciente");
+        require(_esCentroActivo(_sender), "NO eres un centro permitido para dar de alta un paciente");
         require(_maximoDiasDemora > 0, "No se puede agregar a la lista de espera una prueba  con demora maxima 0 dias");
         require(timeDiffInDays({_newer: block.timestamp ,_older: _timestampAlta }) < 365, "No se pueden agregar pruebas de hace mas de un anyo");
         // Check que el paciente no tenga la misma prueba solicitada con el mismo diaagnostico.
@@ -165,7 +235,7 @@ contract ListaEsperaStorage{
             idPaciente: _idPaciente,
             diagnostico: _diagnostico,
             codigoPrueba: _codigoPrueba,
-            centroRealizador: msg.sender,
+            centroRealizador: _sender,
             timestampAlta: _timestampAlta,
             timestampBaja: 0,
             maximoDiasDemora: _maximoDiasDemora,
@@ -184,52 +254,87 @@ contract ListaEsperaStorage{
     }  
 
     // Modificamos una prueba, hacemos 2 funciones una parqa modificar los datos de baja y otra para los datos de la redireccion.
-    function modificaPruebaDiagnostica(uint256 _idPrueba, uint256 _timestampBaja, uint16 _motivoDeBaja) public {
-        
+    function bajaPruebaDiagnostica(address _sender, uint256 _idPrueba, uint256 _timestampBaja, uint16 _motivoDeBaja) public {
         //Check que exista la prueba 
         require(pruebasDiagnosticas[_idPrueba].idPrueba != 0, "La prueba no existe");
-        PruebaDiagnostica storage prueba = pruebasDiagnosticas[_idPrueba];
-        require(msg.sender == aseguradora || msg.sender == prueba.centroRealizador, "NO tienes permisos para modificar la prueba Diagnostica");
-        require(prueba.activa, "Estas intentando modificar una prueba ya dada de baja");
-        require(_timestampBaja > prueba.timestampAlta, "La fecha de baja no puede ser anterior a la fecha de alta");
+        PruebaDiagnostica storage _prueba = pruebasDiagnosticas[_idPrueba];
+        _bajaPruebaDiagnostica(_sender, _prueba, _timestampBaja, _motivoDeBaja);
+    }
+
+    function _bajaPruebaDiagnostica(address _sender, PruebaDiagnostica storage _prueba, uint256 _timestampBaja, uint16 _motivoDeBaja) internal {
+        require(_sender == aseguradora || _sender == _prueba.centroRealizador, "NO tienes permisos para modificar la prueba Diagnostica");
+        require(_prueba.activa, "Estas intentando modificar una prueba ya dada de baja");
+        require(_timestampBaja > _prueba.timestampAlta, "La fecha de baja no puede ser anterior a la fecha de alta");
         require(_timestampBaja <= block.timestamp, "La fecha de baja no puede ser mayor a la fecha actual");
 
-        prueba.timestampBaja = _timestampBaja;
-        prueba.motivoDeBaja = _motivoDeBaja;
+        _prueba.timestampBaja = _timestampBaja;
+        _prueba.motivoDeBaja = _motivoDeBaja;
+        //Eliminamos la prueba de la lista de pacientes y centros, deberia estar el log para el registro.
         //EN caso que tuviera una redireccion , la damos de baja.
-        if (prueba.propuestaRedireccion) {
-            _eliminaRedireccion(prueba);
+        if (_prueba.propuestaRedireccion) {
+            _rechazaRedireccion(_sender, _prueba);
         }
-        prueba.activa = false;
-    }
-
-    function _modificaPruebaDiagnostica(PruebaDiagnostica storage _prueba, uint256 _timestampBaja, uint16 _motivoDeBaja) internal {
-        // TODO
-    }
-  
-    function modificaPruebaDiagnostica(uint256 _idPrueba, bool _aceptaRedireccion) public {
-        //TODO
-    }
-
-    function _modificaPruebaDiagnostica(PruebaDiagnostica storage _prueba, bool _aceptaRedireccion) internal {
-        // TODO
-    }
-
-    function eliminaPruebaDiagnostica(uint256 _idPrueba) public {
-        // TODO
-    }
-
-    function _eliminaPruebaDiagnostica(PruebaDiagnostica storage _prueba) internal  {
-        //TODO
+        _prueba.activa = false;
     }
 
     // Funciones sobre redirecciones *********************************************************************************************************
-    function nuevaRedireccion() public {
-        // TODO
+
+    function nuevaRedireccion(address _sender, uint256 _idPrueba, address _centroDestino ) public {
+        require(_esCentroActivo(_sender), "El emisor no es un centro valido para redireccionar");
+        require(_esCentroActivo(_centroDestino), "El destino no es un centro activo o valido");
+        require(_sender != _centroDestino, "El origen y el destino no pueden ser el mismo centro");
+        require(pruebasDiagnosticas[_idPrueba].idPrueba != 0, "La prueba no existe");
+        require(pruebasDiagnosticas[_idPrueba].activa  == true, "La prueba no esta activa");
+        require(pruebasDiagnosticas[_idPrueba].propuestaRedireccion == false, "La prueba ya tiene una propuesta de redireccion");
+
+        PruebaDiagnostica storage prueba =  pruebasDiagnosticas[_idPrueba];
+        SolicitudRedireccion[] storage  redireccionesPorCentro = solicitudesRedirecciones[_centroDestino];
+        SolicitudRedireccion memory redireccion = SolicitudRedireccion({
+            idPrueba        : _idPrueba,
+            centroOrigen    : _sender,
+            centroDestino   : _centroDestino,
+            idPaciente      : prueba.idPaciente
+        });
+        redireccionesPorCentro.push(redireccion);
+        prueba.centroDestinoRedireccion = _centroDestino;
+        prueba.propuestaRedireccion = true;
     }
 
+    function rechazaRedireccion(address _sender, uint256 _idPrueba) public {
+        require (existePrueba(_idPrueba), "La prueba solicitada no existe");
+        PruebaDiagnostica storage _prueba  = pruebasDiagnosticas[_idPrueba];
+        _rechazaRedireccion(_sender,_prueba);
+    }
 
-    function _eliminaRedireccion(PruebaDiagnostica storage _prueba) internal {        
+    function _rechazaRedireccion(address _sender, PruebaDiagnostica storage _prueba) internal {
+        require(_esCentroActivo(_sender), "No eres un centro valido para rechazar la redireccion");
+        require(_prueba.propuestaRedireccion, "No consta ninguna propuesta de redireccion");
+        require(_prueba.centroDestinoRedireccion == _sender, "No eres el centro destino, no puedes rechazar la redireccion");
+        _prueba.centroDestinoRedireccion = address(0);
+        _prueba.propuestaRedireccion = false;
+        _eliminaRedireccion(_sender, _prueba);
+
+    }
+
+    function aceptaRedireccion(address _sender, uint256 _idPrueba) public {
+        require (existePrueba(_idPrueba), "La prueba solicitada no existe");
+        PruebaDiagnostica storage _prueba  = pruebasDiagnosticas[_idPrueba];
+        _aceptaRedireccion(_sender,_prueba);
+        
+    }
+
+    function _aceptaRedireccion(address _sender, PruebaDiagnostica storage _prueba) internal {
+        require(_esCentroActivo(_sender), "No eres un centro valido para aceptar la redireccion");
+        require(_prueba.propuestaRedireccion, "No consta ninguna propuesta de redireccion");
+        require(_prueba.centroDestinoRedireccion == _sender, "No eres el centro destino, no puedes aceptar la redireccion");        
+        _prueba.centroRealizador = _sender;
+        _prueba.centroDestinoRedireccion = address(0);
+        _prueba.propuestaRedireccion = false;
+        _eliminaRedireccion(_sender, _prueba);        
+
+    }
+
+    function _eliminaRedireccion(address _sender, PruebaDiagnostica storage _prueba) internal {        
         require(_prueba.propuestaRedireccion, "La prueba no esta en estado redireccionada");
         /*
             Solo pueden eliminar una redireccion:
@@ -237,9 +342,9 @@ contract ListaEsperaStorage{
                 - El centro destinatario ( la  rechaza )
                 - La aseguradora ( como admin medico )
         */
-        require(msg.sender == _prueba.centroDestinoRedireccion ||
-            msg.sender == aseguradora ||
-            msg.sender == _prueba.centroRealizador
+        require(_sender == _prueba.centroDestinoRedireccion ||
+            _sender == aseguradora ||
+            _sender == _prueba.centroRealizador
                 , "NO tiens autorizacion para borrar la redireccion");
 
         //Borramos la redireccion de la prueba
@@ -248,43 +353,37 @@ contract ListaEsperaStorage{
 
         for (uint i = 0; i < _solicitudesRedireccion.length; i++) {
             if (_solicitudesRedireccion[i].idPrueba == _prueba.idPrueba) {
-                delete _solicitudesRedireccion[i];
+                /*
+                    EL delete solo pone el valor de la variable a default pero no elimina la posicion del vector, no lo haec mas corto.
+                    Para eso tenemos que mover el valor a la ultima posicion y hacer un pop.
+                */
+                //delete _solicitudesRedireccion[i];
+                uint256 last = _solicitudesRedireccion.length - 1;
+                if (i != last) {
+                    // Machaco la posicion actual por la ultima
+                    _solicitudesRedireccion[i] = _solicitudesRedireccion[last];
+                }
+                // Hago pop para eliminar del vector la ultima posicion, ahora el vector será más croto
+                _solicitudesRedireccion.pop();
                 break;
             }
         }
-        _prueba.centroDestinoRedireccion = address(0);
-        _prueba.propuestaRedireccion = false;
-    }
-
-    function eliminaRedireccion(uint256 _idPrueba) public {
-        require(existePrueba(_idPrueba), "La prueba que pasas por parametro no existe");
-        PruebaDiagnostica storage prueba = pruebasDiagnosticas[_idPrueba];
-        _eliminaRedireccion(prueba);
     }
 
     // FUnciones de listados *************************************************************************
     function listarPruebasPorPaciente(string calldata _idPaciente) public view returns (uint256[] memory) {
-        //TODO
+        return pruebasPorPaciente[_idPaciente];
     }
 
     function listarPruebasPorCentro(address _centro) public view returns (uint256[] memory) {
-
+        return pruebasPorCentro[_centro];
     }
 
-    function listarRedireccionesPorCentro(address _centro) public view returns (uint256[] memory) {
+    function listarRedireccionesPorCentro(address _centro) public view returns (SolicitudRedireccion[] memory) {
+        return solicitudesRedirecciones[_centro];
     }
 
     // Funciones auxiliares **************************************************************************
-
-    // Comprueba que la direccion esté en la lista de centros válidos.
-    function _esCentroValido(address _centro) internal view returns(bool) {
-        for(uint16 i = 0; i < centros.length; i++) {
-            if (centros[i].direccion == _centro) {
-                return true;
-            }
-        }
-        return false;
-    }
 
     function _existePruebaEnPaciente(
         string calldata _idPaciente,
