@@ -36,6 +36,12 @@ contract ListaEsperaImpl is IListaEspera{
         _;
     }
 
+    modifier contratoActivo(){
+        require(activo, "Contrato NO activo");
+        _;
+    }
+
+
     constructor(address _owner, address _admin) {
         require(_owner != address(0), "owner es zero");
         require(_admin != address(0), "admin es zero");
@@ -51,7 +57,7 @@ contract ListaEsperaImpl is IListaEspera{
         string calldata _diagnostico,
         uint16 _diasDemora,
         uint256 _timestampAlta
-        ) external override onlyOwner returns (uint256){
+        ) external override contratoActivo onlyOwner returns (uint256){
 
             ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
             return gestorStorage.altaPruebaDiagnostica({
@@ -92,7 +98,7 @@ contract ListaEsperaImpl is IListaEspera{
         address _solicitante,
         uint256 _idPrueba,
         address _centroDestino
-    ) external override onlyOwner {
+    ) external override contratoActivo onlyOwner {
 
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
         gestorStorage.nuevaRedireccion(_solicitante, _idPrueba, _centroDestino );
@@ -109,7 +115,7 @@ contract ListaEsperaImpl is IListaEspera{
     function aceptaRedireccion(
         address _solicitante,
         uint256 _idPrueba
-    ) external override onlyOwner {
+    ) external override contratoActivo onlyOwner {
 
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
         gestorStorage.aceptaRedireccion(_solicitante, _idPrueba);
@@ -118,7 +124,7 @@ contract ListaEsperaImpl is IListaEspera{
     function rechazaRedireccion(
         address _solicitante,
         uint256 _idPrueba
-    ) external override onlyOwner {
+    ) external override contratoActivo onlyOwner {
 
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
         gestorStorage.rechazaRedireccion(_solicitante, _idPrueba);
@@ -129,7 +135,7 @@ contract ListaEsperaImpl is IListaEspera{
         uint256 _idPrueba,
         uint256 _timestampBaja, 
         uint16 _motivoDeBaja
-    ) external override onlyOwner {
+    ) external override contratoActivo onlyOwner {
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
         gestorStorage.bajaPruebaDiagnostica(_solicitante, _idPrueba, _timestampBaja, _motivoDeBaja);
     }

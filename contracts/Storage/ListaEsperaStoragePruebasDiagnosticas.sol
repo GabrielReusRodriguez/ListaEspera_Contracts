@@ -92,11 +92,12 @@ contract ListaEsperaStoragePruebasDiagnosticas{
         
     }
 
-    function nuevaRedireccion(uint256 _idPrueba, address _nuevoCentro) public onlyOwner {
+    function nuevaRedireccion(uint256 _idPrueba, address _sender, address _nuevoCentro) public onlyOwner {
         require(esPruebaActiva(_idPrueba), "La prueba no esta activa");
         require(tieneRedireccion(_idPrueba) == false, "La prueba  ya tiene redireccion");
 
         PruebaDiagnostica storage prueba = pruebasDiagnosticas[_idPrueba];
+        require(_sender == prueba.centroRealizador, "La solicitud la ha hecho un centro que no es el realizador");
         prueba.propuestaRedireccion = true;
         prueba.centroDestinoRedireccion = _nuevoCentro;
     }
@@ -107,10 +108,31 @@ contract ListaEsperaStoragePruebasDiagnosticas{
 
         PruebaDiagnostica storage prueba = pruebasDiagnosticas[_idPrueba];
         if (aceptada) {
+            // Hay que actualizar las pruebas por centro.
+            //Primero borro la antigua
+            uint256[] storage pruebasPorCentroOrigen = pruebasPorCentro[prueba.centroRealizador];
+            for (uint i = 0;i < pruebasPorCentroOrigen.length; i++) {
+                    if (pruebasPorCentroOrigen[i] == _idPrueba) {
+                        /*
+                            EL delete solo pone el valor de la variable a default pero no elimina la posicion del vector, no lo haec mas corto.
+                            Para eso tenemos que mover el valor a la ultima posicion y hacer un pop.
+                        */
+                        if (i != pruebasPorCentroOrigen.length - 1) {
+                            // Machaco la posicion actual por la ultima
+                            pruebasPorCentroOrigen[i] = pruebasPorCentroOrigen[pruebasPorCentroOrigen.length - 1];
+                        }
+                        // Hago pop para eliminar del vector la ultima posicion, ahora el vector será más croto
+                        pruebasPorCentroOrigen.pop();
+                        break;
+                    }
+            }
+            // Ahora hago push de la nueva prueba.
+            pruebasPorCentro[prueba.centroDestinoRedireccion].push(_idPrueba);
+            // hecho
             prueba.centroRealizador = prueba.centroDestinoRedireccion;
         }
         prueba.centroDestinoRedireccion = address(0);
-        prueba.propuestaRedireccion = true;
+        prueba.propuestaRedireccion = false;
     }
 
     function getPruebaDiagnostica(uint _idPrueba) public view onlyOwner returns (PruebaDiagnostica memory) {
@@ -203,7 +225,7 @@ contract ListaEsperaStoragePruebasDiagnosticas{
         ) internal view returns (bool)
         {
             uint256[] memory pruebasDePaciente = pruebasPorPaciente[_idPaciente];
-            for (uint i = 0; i < pruebasDePaciente[i]; i++ ) {
+            for (uint i = 0; i < pruebasDePaciente.length; i++ ) {
                 PruebaDiagnostica memory prueba = pruebasDiagnosticas[pruebasDePaciente[i]]; 
                 if (compareStrings(prueba.diagnostico, _diagnostico) && 
                     compareStrings(prueba.codigoPrueba, _codigoPrueba)) {
@@ -225,8 +247,6 @@ contract ListaEsperaStoragePruebasDiagnosticas{
 
     // pruebasDiagnosticas
     function exportaPruebasDiagnosticas() public view onlyOwner returns (PruebaDiagnostica[] memory) {
-        //require(msg.sender == admin, "Solo el admin puede obtener todas las pruebas Diagnosticas de la lista de espera");
-
         PruebaDiagnostica[] memory pruebas = new PruebaDiagnostica[] (nextIdPrueba);
         //OJO!! que la primera prueba qye introducimos tiene id 1.
         for (uint i = 1; i <= nextIdPrueba; i++) {

@@ -93,7 +93,7 @@ contract ListaEsperaStorageCentros{
     function modificaCentro(address _centroAddress, string calldata _nuevoNombre) public onlyOwner activeContract {
         //require(_sender == aseguradora, "Solo la aseguradora puede gestionar los centros");
         require(isEmptyString(_nuevoNombre) == false, "Has de informar el nombre del centro");
-        require(_checkIfCentroExiste(_centroAddress) == false, "EL centro que intentas agregar NO esta en la lista");
+        require(_checkIfCentroExiste(_centroAddress) == true, "EL centro que intentas agregar NO esta en la lista");
         
         for ( uint i = 0; i < centros.length; i++) {
             if (centros[i].direccion == _centroAddress) {

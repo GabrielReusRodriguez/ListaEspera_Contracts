@@ -171,7 +171,7 @@ contract ListaEsperaStorage{
     function bajaPruebaDiagnostica(address _centroRealizador, uint256 _idPrueba, uint256 _timestampBaja, uint16 _motivoDeBaja) public onlyOwner {
     
         ListaEsperaStorageCentros gestorCentros =  ListaEsperaStorageCentros(addressGestorCentros);
-        require (gestorCentros.esCentroActivo(_centroRealizador) == true, "EL centro realizador NO esta activo o no existe");
+        require (gestorCentros.esCentroActivo(_centroRealizador) == true || _centroRealizador == aseguradora, "EL centro realizador NO esta activo o no existe");
 
         ListaEsperaStoragePruebasDiagnosticas gestorPruebas = ListaEsperaStoragePruebasDiagnosticas(addressGestorPruebasDiagnosticas);
         
@@ -206,10 +206,10 @@ contract ListaEsperaStorage{
         require(gestorCentros.esCentroActivo(_centroDestino), "El centro destino no esta activo o no existe.");
         require(gestorCentros.esCentroActivo(_sender), "El centro destino no esta activo o no existe.");
         require(_centroDestino != _sender, "El centro detino y origen son los mismos.");
-
+        
         // En realidad, se valida en los require de antes y en el gestor de pruebas, el gestor de redirecciones lo da todo por validado y solo hace push
         // en la lista de redirecciones del centro destino.
-        gestorPruebas.nuevaRedireccion(_idPrueba, _centroDestino);
+        gestorPruebas.nuevaRedireccion(_idPrueba, _sender,  _centroDestino);
         gestorRedirecciones.nuevaRedireccion(_idPrueba, _centroDestino);
     }
 
@@ -240,6 +240,7 @@ contract ListaEsperaStorage{
         
         gestorPruebas.eliminaRedireccion(_idPrueba,true);
         gestorRedirecciones.eliminaRedireccion(_sender, _idPrueba);
+        
     }
     
     // FUnciones de listados *************************************************************************

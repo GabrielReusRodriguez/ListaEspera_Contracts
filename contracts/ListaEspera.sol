@@ -4,7 +4,7 @@ pragma solidity ^0.8.10;
 import "./IListaEspera.sol";
 import "./IListaEsperaEvents.sol";
 
-contract ListaEspera is IListaEspera, IListaEsperaEvents{
+contract ListaEspera is IListaEsperaEvents{
 
 
     //Resumen del contrato, llamamos a la implementacion y añadimos los eventos. (considero que estan fuera de la implementacion)
@@ -24,6 +24,11 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
         require(_implementationContract != address(0), "La direccion ha de estar informada");
 
         addrImplementation = _implementationContract;
+    }
+
+    modifier contratoActivo(){
+        require(activo, "COntrato no activo");
+        _;
     }
 
     /*
@@ -46,18 +51,17 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
     }
 
     function alta(
-        address _solicitante,
         string calldata _idPaciente, 
         string calldata _codigoPrueba,
         string calldata _diagnostico,
         uint16 _diasDemora,
         uint256 _timestampAlta
-        ) external override  returns (uint256) {
-
+        ) external contratoActivo returns (uint256) {
+            // Aqui _solcititante debe ser el msg.sender, en la implementacion, no ya que el msg.sender será el owner. 
             IListaEspera implementation = _impl();
             
             uint256 idnuevaPrueba = implementation.alta({
-                 _centroRealizador: _solicitante,
+                 _centroRealizador: msg.sender,
                  _idPaciente : _idPaciente,
                  _diagnostico : _diagnostico,
                  _codigoPrueba: _codigoPrueba,
@@ -68,7 +72,7 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
             emit Alta({
                 pruebaID : idnuevaPrueba,
                 CIP: _idPaciente,
-                centroRealizador: _solicitante,
+                centroRealizador: msg.sender,
                 timestampAlta:  _timestampAlta,
                 diagnostico : _diagnostico,
                 codigoPrueba : _codigoPrueba,
@@ -79,7 +83,7 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
 
     function listaPruebasPorPaciente(
         string calldata _idPaciente
-    ) external override view returns (uint256[] memory) {
+    ) external view returns (uint256[] memory) {
         
         IListaEspera implementation = _impl();
         return implementation.listaPruebasPorPaciente(_idPaciente);
@@ -87,7 +91,7 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
 
     function listaPruebasPorCentro(
         address _centro
-    ) external override view returns (uint256[] memory)
+    ) external view returns (uint256[] memory)
     {
 
         IListaEspera implementation = _impl();
@@ -96,68 +100,64 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
 
     function obtenerPruebaPorId(
         uint256 _idPrueba
-    ) external override view returns (PruebaDiagnostica memory) {
+    ) external view returns (PruebaDiagnostica memory) {
 
         IListaEspera implementation = _impl();
         return implementation.obtenerPruebaPorId(_idPrueba);
     }
 
     function creaRedireccion(
-        address _solicitante,
         uint256 _idPrueba,
         address _centroDestino
-    ) external override {
+    ) external contratoActivo {
 
         IListaEspera implementation = _impl();
-        implementation.creaRedireccion(_solicitante, _idPrueba, _centroDestino );
+        implementation.creaRedireccion(msg.sender, _idPrueba, _centroDestino );
         PruebaDiagnostica memory prueba = implementation.obtenerPruebaPorId(_idPrueba);
         emit CreaRedireccion( _idPrueba, prueba.idPaciente, _centroDestino);
     }
 
     function listaRedireccionesPendientes(
-        address _solicitante
-    ) external override view returns (uint256 [] memory) {
+    ) external view returns (uint256 [] memory) {
 
+ 
         IListaEspera implementation = _impl();
-        return implementation.listaRedireccionesPendientes(_solicitante);
+        return implementation.listaRedireccionesPendientes(msg.sender);
     }
 
     function aceptaRedireccion(
-        address _solicitante,
         uint256 _idPrueba
-    ) external override{
-
+    ) external contratoActivo {
+ 
         IListaEspera implementation = _impl();
-        implementation.aceptaRedireccion(_solicitante, _idPrueba);
+        implementation.aceptaRedireccion(msg.sender, _idPrueba);
         PruebaDiagnostica memory prueba = implementation.obtenerPruebaPorId(_idPrueba);
-        emit AceptaRedireccion( _idPrueba, prueba.idPaciente, _solicitante);
+        emit AceptaRedireccion( _idPrueba, prueba.idPaciente, msg.sender);
     }
     
     function rechazaRedireccion(
-        address _solicitante,
         uint256 _idPrueba
-    ) external override{
-
+    ) external contratoActivo {
+ 
         IListaEspera implementation = _impl();
-        implementation.rechazaRedireccion(_solicitante, _idPrueba);
+        implementation.rechazaRedireccion(msg.sender, _idPrueba);
         PruebaDiagnostica memory prueba = implementation.obtenerPruebaPorId(_idPrueba);
-        emit RechazaRedireccion( _idPrueba, prueba.idPaciente, _solicitante);
+        emit RechazaRedireccion( _idPrueba, prueba.idPaciente, msg.sender);
     }
 
     function baja(
-        address _solicitante,
         uint256 _idPrueba,
         uint256 _timestampBaja, 
         uint16 _motivoDeBaja
-    ) external override{
-
+    ) external contratoActivo{
+ 
         IListaEspera implementation = _impl();
-        implementation.baja(_solicitante, _idPrueba, _timestampBaja, _motivoDeBaja);
+        implementation.baja(msg.sender, _idPrueba, _timestampBaja, _motivoDeBaja);
         PruebaDiagnostica memory prueba = implementation.obtenerPruebaPorId(_idPrueba);
         emit Baja( _idPrueba, prueba.idPaciente, _timestampBaja, _motivoDeBaja);
     }
 
-    function enable() external override {
+    function enable() external {
         require(msg.sender == admin, "SOlo el admin puede gestionarlo");
         require(activo == false, "El contrato ya esta activado");
 
@@ -166,7 +166,7 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
         activo = true;
     }
 
-    function disable() external override {
+    function disable() external {
         require(msg.sender == admin, "SOlo el admin puede gestionarlo");
         require(activo == true, "El contrato ya esta desactivado");
 
