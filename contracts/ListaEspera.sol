@@ -2,9 +2,7 @@
 pragma solidity ^0.8.10;
 
 import "./IListaEspera.sol";
-import "./ListaEsperaImpl.sol";
 import "./IListaEsperaEvents.sol";
-
 
 contract ListaEspera is IListaEspera, IListaEsperaEvents{
 
@@ -28,12 +26,23 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
         addrImplementation = _implementationContract;
     }
 
-    constructor(address _admin, address _implementation){
+    /*
+        NO enviamos la direccion de la implementacion  al constructor para evitar dependencias circulares. 
+        Implementacion tiene un constructor que necesita ListaEspera como owner y lista de espera loe necesita como implementacion
+        SOLUCION: instanciar listaespera  , listaEsperaimpl l(pasandole la address de lista espera ) y luego  al final le hacemo sun set de la addr en listaespera
+    
+    */
+    constructor(address _admin){
         require(_admin != address(0), "admin es zero");
-        require(_implementation != address(0), "implementation es zero");
         admin = _admin;
-        addrImplementation = _implementation;
         activo = true;
+    }
+
+    // Esta funcion genera una instancia de algo que implementa IListaEspera. De esta forma nos ahorramos llamar
+    // Explicitamente al nmombre de la implementacion.
+    function _impl() private view returns (IListaEspera) {
+        require(addrImplementation != address(0), "Implementacion no configurada");
+        return IListaEspera(addrImplementation);
     }
 
     function alta(
@@ -45,10 +54,10 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
         uint256 _timestampAlta
         ) external override  returns (uint256) {
 
-            ListaEsperaImpl implementation = ListaEsperaImpl(addrImplementation);
+            IListaEspera implementation = _impl();
             
             uint256 idnuevaPrueba = implementation.alta({
-                 _solicitante: _solicitante,
+                 _centroRealizador: _solicitante,
                  _idPaciente : _idPaciente,
                  _diagnostico : _diagnostico,
                  _codigoPrueba: _codigoPrueba,
@@ -72,7 +81,7 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
         string calldata _idPaciente
     ) external override view returns (uint256[] memory) {
         
-        ListaEsperaImpl implementation = ListaEsperaImpl(addrImplementation);
+        IListaEspera implementation = _impl();
         return implementation.listaPruebasPorPaciente(_idPaciente);
     }
 
@@ -81,7 +90,7 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
     ) external override view returns (uint256[] memory)
     {
 
-        ListaEsperaImpl implementation = ListaEsperaImpl(addrImplementation);
+        IListaEspera implementation = _impl();
         return implementation.listaPruebasPorCentro(_centro);
     }
 
@@ -89,7 +98,7 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
         uint256 _idPrueba
     ) external override view returns (PruebaDiagnostica memory) {
 
-        ListaEsperaImpl implementation = ListaEsperaImpl(addrImplementation);
+        IListaEspera implementation = _impl();
         return implementation.obtenerPruebaPorId(_idPrueba);
     }
 
@@ -99,7 +108,7 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
         address _centroDestino
     ) external override {
 
-        ListaEsperaImpl implementation = ListaEsperaImpl(addrImplementation);
+        IListaEspera implementation = _impl();
         implementation.creaRedireccion(_solicitante, _idPrueba, _centroDestino );
         PruebaDiagnostica memory prueba = implementation.obtenerPruebaPorId(_idPrueba);
         emit CreaRedireccion( _idPrueba, prueba.idPaciente, _centroDestino);
@@ -109,7 +118,7 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
         address _solicitante
     ) external override view returns (uint256 [] memory) {
 
-        ListaEsperaImpl implementation = ListaEsperaImpl(addrImplementation);
+        IListaEspera implementation = _impl();
         return implementation.listaRedireccionesPendientes(_solicitante);
     }
 
@@ -118,7 +127,7 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
         uint256 _idPrueba
     ) external override{
 
-        ListaEsperaImpl implementation = ListaEsperaImpl(addrImplementation);
+        IListaEspera implementation = _impl();
         implementation.aceptaRedireccion(_solicitante, _idPrueba);
         PruebaDiagnostica memory prueba = implementation.obtenerPruebaPorId(_idPrueba);
         emit AceptaRedireccion( _idPrueba, prueba.idPaciente, _solicitante);
@@ -129,7 +138,7 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
         uint256 _idPrueba
     ) external override{
 
-        ListaEsperaImpl implementation = ListaEsperaImpl(addrImplementation);
+        IListaEspera implementation = _impl();
         implementation.rechazaRedireccion(_solicitante, _idPrueba);
         PruebaDiagnostica memory prueba = implementation.obtenerPruebaPorId(_idPrueba);
         emit RechazaRedireccion( _idPrueba, prueba.idPaciente, _solicitante);
@@ -142,7 +151,7 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
         uint16 _motivoDeBaja
     ) external override{
 
-        ListaEsperaImpl implementation = ListaEsperaImpl(addrImplementation);
+        IListaEspera implementation = _impl();
         implementation.baja(_solicitante, _idPrueba, _timestampBaja, _motivoDeBaja);
         PruebaDiagnostica memory prueba = implementation.obtenerPruebaPorId(_idPrueba);
         emit Baja( _idPrueba, prueba.idPaciente, _timestampBaja, _motivoDeBaja);
@@ -152,7 +161,7 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
         require(msg.sender == admin, "SOlo el admin puede gestionarlo");
         require(activo == false, "El contrato ya esta activado");
 
-        ListaEsperaImpl implementation = ListaEsperaImpl(addrImplementation);
+        IListaEspera implementation = _impl();
         implementation.enable();
         activo = true;
     }
@@ -161,7 +170,7 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
         require(msg.sender == admin, "SOlo el admin puede gestionarlo");
         require(activo == true, "El contrato ya esta desactivado");
 
-        ListaEsperaImpl implementation = ListaEsperaImpl(addrImplementation);
+        IListaEspera implementation = _impl();
         implementation.disable();
         activo = false;
 
