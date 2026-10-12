@@ -15,7 +15,7 @@ contract ListaEsperaStoragePruebasDiagnosticas{
 
     bool private activo;
 
-    address private owner;
+    address private immutable owner;
 
     uint256 nextIdPrueba;
 
@@ -42,22 +42,11 @@ contract ListaEsperaStoragePruebasDiagnosticas{
 
 
     // Constructor
-    constructor() {
-        /*
-            Agrego unos pocos centros de ejemplo.
-        */
+    constructor(address _owner) {
+        require(_owner != address(0), "owner es zero");
+        owner = _owner;
         activo = true;
         nextIdPrueba = 0;
-    }
-
-
-    // Funciones sobre los admins, propietarios y aseguradoras *************************************************************************************
-    function getOwner() public view returns (address) {
-        return owner;
-    }
-
-    function setOwner(address _owner) public onlyOwner {
-        owner = _owner;
     }
 
     // Funciones para activar y desactivar  el contrato ************************************************************************

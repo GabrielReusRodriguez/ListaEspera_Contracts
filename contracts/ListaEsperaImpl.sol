@@ -7,7 +7,42 @@ import "./Storage/ListaEsperaStorage.sol";
 
 contract ListaEsperaImpl is IListaEspera{
 
+
+    /*
+        Las llamadas con la logica ( que delegaran en storage y demas ) han de ser con only owner, solo se pueden llamar si lo ha pedido el contrato principal.
+        Las llamadas de administracion ( activo o no, setear adresses... las puede llamar un admin :  personas humanas )
+    */
+    address private admin;
+    address private immutable owner;
     address private addrStorage;
+    bool private activo;
+
+    function setAdmin(address _admin) public {
+        require(_admin != address(0), "la nueva direccion ha de estar informada");
+        require(msg.sender == admin, "Solo lo pude gestionar el admin");
+
+        admin = _admin;
+    }
+
+    function setStorage(address _addrStorage) public {
+        require(msg.sender == admin, "Solo lo pude gestionar el admin");
+        require(_addrStorage != address(0), "la nueva direccion ha de estar informada");
+        
+        addrStorage = _addrStorage;
+    }
+
+    modifier onlyOwner(){
+        require(msg.sender == owner, "Solo el owner puede ejeccutarlo");
+        _;
+    }
+
+    constructor(address _owner, address _admin) {
+        require(_owner != address(0), "owner es zero");
+        require(_admin != address(0), "admin es zero");
+        owner = _owner;
+        admin = _admin;
+        activo = true;
+    }
 
     function alta(
         address _solicitante,
@@ -16,7 +51,7 @@ contract ListaEsperaImpl is IListaEspera{
         string calldata _diagnostico,
         uint16 _diasDemora,
         uint256 _timestampAlta
-        ) external override returns (uint256){
+        ) external override onlyOwner returns (uint256){
 
             ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
             return gestorStorage.altaPruebaDiagnostica({
@@ -31,7 +66,7 @@ contract ListaEsperaImpl is IListaEspera{
 
     function listaPruebasPorPaciente(
         string calldata _idPaciente
-    ) external override view returns (uint256[] memory) {
+    ) external override view onlyOwner returns (uint256[] memory) {
         
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
         return gestorStorage.listarPruebasPorPaciente(_idPaciente);
@@ -39,7 +74,7 @@ contract ListaEsperaImpl is IListaEspera{
 
     function listaPruebasPorCentro(
         address _centro
-    ) external override view returns (uint256[] memory)
+    ) external override view onlyOwner returns (uint256[] memory)
     {
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
         return gestorStorage.listarPruebasPorCentro(_centro);
@@ -47,7 +82,7 @@ contract ListaEsperaImpl is IListaEspera{
 
     function obtenerPruebaPorId(
         uint256 _idPrueba
-    ) external override view returns (PruebaDiagnostica memory) {
+    ) external override view onlyOwner returns (PruebaDiagnostica memory) {
 
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
         return gestorStorage.getPrueba(_idPrueba);
@@ -57,7 +92,7 @@ contract ListaEsperaImpl is IListaEspera{
         address _solicitante,
         uint256 _idPrueba,
         address _centroDestino
-    ) external override {
+    ) external override onlyOwner {
 
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
         gestorStorage.nuevaRedireccion(_solicitante, _idPrueba, _centroDestino );
@@ -65,7 +100,7 @@ contract ListaEsperaImpl is IListaEspera{
 
     function listaRedireccionesPendientes(
         address _solicitante
-    ) external view override returns (uint256 [] memory) {
+    ) external view override onlyOwner returns (uint256 [] memory) {
 
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
         return gestorStorage.listarRedireccionesPorCentro(_solicitante);
@@ -74,7 +109,7 @@ contract ListaEsperaImpl is IListaEspera{
     function aceptaRedireccion(
         address _solicitante,
         uint256 _idPrueba
-    ) external override {
+    ) external override onlyOwner {
 
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
         gestorStorage.aceptaRedireccion(_solicitante, _idPrueba);
@@ -83,7 +118,7 @@ contract ListaEsperaImpl is IListaEspera{
     function rechazaRedireccion(
         address _solicitante,
         uint256 _idPrueba
-    ) external override {
+    ) external override onlyOwner {
 
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
         gestorStorage.rechazaRedireccion(_solicitante, _idPrueba);
@@ -94,10 +129,26 @@ contract ListaEsperaImpl is IListaEspera{
         uint256 _idPrueba,
         uint256 _timestampBaja, 
         uint16 _motivoDeBaja
-    ) external override {
+    ) external override onlyOwner {
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
         gestorStorage.bajaPruebaDiagnostica(_solicitante, _idPrueba, _timestampBaja, _motivoDeBaja);
-        //function bajaPruebaDiagnostica(address _centroRealizador, uint256 _idPrueba, uint256 _timestampBaja, uint16 _motivoDeBaja) public {
+    }
+
+    function enable() external override {
+        require(msg.sender == admin || msg.sender  == owner, "No estas autorizado");
+        require(activo == false, "YA esta activo");
+        ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
+        gestorStorage.enable();
+        activo = true;
+
+    }
+
+    function disable() external override {
+        require(msg.sender == admin || msg.sender == owner, "No estas autorizado");
+        require(activo == true, "YA esta desactivo");
+        ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
+        gestorStorage.disable();        
+        activo = false;
 
     }
 }

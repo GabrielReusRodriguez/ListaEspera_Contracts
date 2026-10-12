@@ -12,6 +12,30 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
     //Resumen del contrato, llamamos a la implementacion y añadimos los eventos. (considero que estan fuera de la implementacion)
     address private addrImplementation;
 
+    address  private admin;
+    bool private activo;
+
+    function setAdmin(address _admin) public {
+        require(_admin != address(0), "La direccion ha de estar informada");
+        require(msg.sender == admin, "Solo el admin puede gestionarlo");
+        admin = _admin;
+    }
+
+    function setImplementation(address _implementationContract) public {
+        require(msg.sender == admin, "Solo el admin puede gestionarlo");
+        require(_implementationContract != address(0), "La direccion ha de estar informada");
+
+        addrImplementation = _implementationContract;
+    }
+
+    constructor(address _admin, address _implementation){
+        require(_admin != address(0), "admin es zero");
+        require(_implementation != address(0), "implementation es zero");
+        admin = _admin;
+        addrImplementation = _implementation;
+        activo = true;
+    }
+
     function alta(
         address _solicitante,
         string calldata _idPaciente, 
@@ -122,5 +146,24 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
         implementation.baja(_solicitante, _idPrueba, _timestampBaja, _motivoDeBaja);
         PruebaDiagnostica memory prueba = implementation.obtenerPruebaPorId(_idPrueba);
         emit Baja( _idPrueba, prueba.idPaciente, _timestampBaja, _motivoDeBaja);
+    }
+
+    function enable() external override {
+        require(msg.sender == admin, "SOlo el admin puede gestionarlo");
+        require(activo == false, "El contrato ya esta activado");
+
+        ListaEsperaImpl implementation = ListaEsperaImpl(addrImplementation);
+        implementation.enable();
+        activo = true;
+    }
+
+    function disable() external override {
+        require(msg.sender == admin, "SOlo el admin puede gestionarlo");
+        require(activo == true, "El contrato ya esta desactivado");
+
+        ListaEsperaImpl implementation = ListaEsperaImpl(addrImplementation);
+        implementation.disable();
+        activo = false;
+
     }
 }

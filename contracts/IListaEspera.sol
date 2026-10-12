@@ -71,4 +71,8 @@ interface IListaEspera {
         uint16 _motivoDeBaja
     ) external;
 
+    function enable() external;
+
+    function disable() external;
+
 }

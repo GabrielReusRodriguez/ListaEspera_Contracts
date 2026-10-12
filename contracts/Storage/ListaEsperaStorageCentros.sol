@@ -15,7 +15,7 @@ contract ListaEsperaStorageCentros{
 
     bool private activo;
 
-    address private owner;
+    address private immutable owner;
 
     /* 
     Inventarios de centros. Se decide hacerlo como array en vez de hashtable ya que se ha de listar muchas veces y se calcula que habrán como mucho  50 centros?
@@ -40,26 +40,14 @@ contract ListaEsperaStorageCentros{
     // Para cada centro (address de centro) obtenemos la lista de solicitudes de redireccion que ha recibido.
 
     // Constructor
-    constructor() {
-        owner  = msg.sender;
+    constructor(address _owner) {
+        require(_owner != address(0), "Owner es zero");
+        owner  = _owner;
         /*
             Agrego unos pocos centros de ejemplo.
         */
         activo = true;
    }
-
-
-    // Funciones sobre los admins, propietarios y aseguradoras *************************************************************************************
-    // Getters / Setteers de admin
-    function getOwner() public view returns(address) {
-        return owner;
-    }
-
-    function setOwner(address _owner) public onlyOwner {
-        require(_owner != address(0), "La nueva direccion NO ha de estar en blanco");
-
-        owner = _owner;
-    }
 
     // Funciones para activar y desactivar  el contrato ************************************************************************
     function enable() public onlyOwner {

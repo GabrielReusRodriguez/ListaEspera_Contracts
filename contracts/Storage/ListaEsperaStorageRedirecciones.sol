@@ -15,7 +15,7 @@ contract ListaEsperaStorageRedirecciones{
 
     bool private activo;
 
-    address private owner;
+    address private immutable owner;
 
     // Para cada centro (address de centro) obtenemos la lista de solicitudes de redireccion que ha recibido.
     //mapping(address => SolicitudRedireccion[]) private solicitudesRedirecciones;
@@ -35,11 +35,9 @@ contract ListaEsperaStorageRedirecciones{
 
 
     // Constructor
-    constructor() {
-        owner = msg.sender;
-        /*
-            Agrego unos pocos centros de ejemplo.
-        */
+    constructor(address _owner) {
+        require(_owner != address(0), "Owner zero");
+        owner = _owner;
         activo = true;
     }
 
@@ -63,26 +61,12 @@ contract ListaEsperaStorageRedirecciones{
         uint256 _idPrueba,
         address _centroDestino
             ) public onlyOwner activeContract {
-        //require(_esCentroActivo(_sender), "El emisor no es un centro valido para redireccionar");
-        //require(_esCentroActivo(_centroDestino), "El destino no es un centro activo o valido");
-        //require(_sender != _centroDestino, "El origen y el destino no pueden ser el mismo centro");
-        //require(pruebasDiagnosticas[_idPrueba].idPrueba != 0, "La prueba no existe");
-        //require(pruebasDiagnosticas[_idPrueba].activa  == true, "La prueba no esta activa");
-        //require(pruebasDiagnosticas[_idPrueba].propuestaRedireccion == false, "La prueba ya tiene una propuesta de redireccion");
 
         uint256[] storage  redireccionesPorCentro = solicitudesRedirecciones[_centroDestino];
         redireccionesPorCentro.push(_idPrueba);
-        //prueba.centroDestinoRedireccion = _centroDestino;
-        //prueba.propuestaRedireccion = true;
     }
 
     function eliminaRedireccion(address _centroDestinoRedireccion, uint256 _idPrueba) public onlyOwner activeContract {        
-        /*
-        require(_sender == _prueba.centroDestinoRedireccion ||
-            _sender == aseguradora ||
-            _sender == _prueba.centroRealizador
-                , "NO tiens autorizacion para borrar la redireccion");
-        */
         //Borramos la redireccion de la prueba
         
         uint256[] storage _solicitudesRedireccion = solicitudesRedirecciones[_centroDestinoRedireccion];

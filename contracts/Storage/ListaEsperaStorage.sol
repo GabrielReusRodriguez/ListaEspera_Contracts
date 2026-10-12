@@ -14,10 +14,15 @@ contract ListaEsperaStorage{
         Este contrato sirve para guardar los datos del sistema entero. Los declaro como private porque aunque estará en una  blockchain publica 
         y se podrán leer los datos, quiero evitar que alguien desde otro contrato modifique las variables directamente con 
             contato.admin = "0x123434545645645"
-        Tendrán que pasar obligatoriamente por la función de set y get que les ofrezco ( una especie de api )
+        Tendrán que pasar obligatoriamente por la función de set y get que les ofrezco ( una especie de api ).
+
+        A tener en cuenta que hay un admin y un owner. El admin es la persona humana que administra este contrato ( que seguramente sea el que administra toda la app ) 
+        y el owner es el contrato que le usa.
     */
 
     bool private activo;
+
+    address private owner;
 
     // Address del administrador
     address private admin ;
@@ -28,13 +33,16 @@ contract ListaEsperaStorage{
     address private addressGestorPruebasDiagnosticas;
     address private addressGestorRedirecciones;
 
-
     //Modifiers ***************************************************************************************************
     modifier onlyAdmin() {
         require(msg.sender == admin, "Solo el owner puede ejecutar la funcionalidad");
         _;
     }
 
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Solo el ownwe puede ejecutar la funcionalidad");
+        _;
+    }
     modifier activeContract() {
         require(activo, "El contrato no esta activo");
         _;
@@ -46,27 +54,30 @@ contract ListaEsperaStorage{
     }
     
     // Constructor
-    constructor() {
-        admin = msg.sender;
+    constructor(address _owner, address _admin) {
+        require(_owner != address(0), "Owner es zero");
+        require(_admin != address(0), "Admin es zero");
+        admin = _admin;
+        owner = _owner;
         activo = true;
     }
 
+    /* NO hjacemos inmutable el owner ya que es el contrato de storage. Nos podria interesar hacer que el padre cambie de propietario.
+        Los contratos hijos seguiran siendo llamados por este mismo contrato, y mantendran la coherencia de datos.
+    */
+    function setOwner(address _owner) public onlyAdmin {
+        require(_owner != address(0), "La nueva direccion no puede estar en blanco");
 
+        owner = _owner;
+
+    }
     // Funciones sobre los admins, propietarios y aseguradoras *************************************************************************************
     // Getters / Setteers de admin
-    function getAdmin() public view returns(address) {
-        return admin;
-    }
 
     function setAdmin(address _admin) public onlyAdmin{
         require(_admin != address(0), "La nueva direccion NO ha de estar en blanco");
 
         admin = _admin;
-    }
-
-    // Getters / Setters de la aseguradora.
-    function getAseguradora() public view returns(address) {
-        return aseguradora;
     }
 
     function setAseguradora(address _aseguradora) public onlyAdmin {
@@ -92,7 +103,8 @@ contract ListaEsperaStorage{
     }
 
     // Funciones para activar y desactivar  el contrato ************************************************************************
-    function enable() public onlyAdmin {
+    function enable() public {
+        require(msg.sender == admin || msg.sender == owner, "No tienes autorizacion");
         require (activo == false, "El contrato ya esta activado");
         activo = true;
 
@@ -107,7 +119,9 @@ contract ListaEsperaStorage{
 
     }
 
-    function disable() public  onlyAdmin {
+    function disable() public  {
+        require(msg.sender == admin || msg.sender == owner, "No tienes autorizacion");
+ 
         require (activo, "El contrato ya esta desactivado");
         activo = false;
 
@@ -137,7 +151,7 @@ contract ListaEsperaStorage{
         string calldata _codigoPrueba,
         uint16  _maximoDiasDemora,
         uint256 _timestampAlta
-        ) public  activeContract returns (uint256){
+        ) public  activeContract onlyOwner returns (uint256){
         
         ListaEsperaStorageCentros gestorCentros =  ListaEsperaStorageCentros(addressGestorCentros);
         require(gestorCentros.esCentroActivo(_centroRealizador) == true, "El centro realizador no es un centro activo");
@@ -154,7 +168,7 @@ contract ListaEsperaStorage{
         });
     }  
 
-    function bajaPruebaDiagnostica(address _centroRealizador, uint256 _idPrueba, uint256 _timestampBaja, uint16 _motivoDeBaja) public {
+    function bajaPruebaDiagnostica(address _centroRealizador, uint256 _idPrueba, uint256 _timestampBaja, uint16 _motivoDeBaja) public onlyOwner {
     
         ListaEsperaStorageCentros gestorCentros =  ListaEsperaStorageCentros(addressGestorCentros);
         require (gestorCentros.esCentroActivo(_centroRealizador) == true, "EL centro realizador NO esta activo o no existe");
@@ -183,7 +197,7 @@ contract ListaEsperaStorage{
 
     // Funciones sobre redirecciones *********************************************************************************************************
 
-    function nuevaRedireccion(address _sender, uint256 _idPrueba, address _centroDestino ) public {
+    function nuevaRedireccion(address _sender, uint256 _idPrueba, address _centroDestino ) public onlyOwner {
 
         ListaEsperaStorageCentros gestorCentros = ListaEsperaStorageCentros(addressGestorCentros);
         ListaEsperaStoragePruebasDiagnosticas gestorPruebas = ListaEsperaStoragePruebasDiagnosticas(addressGestorPruebasDiagnosticas);
@@ -199,7 +213,7 @@ contract ListaEsperaStorage{
         gestorRedirecciones.nuevaRedireccion(_idPrueba, _centroDestino);
     }
 
-    function rechazaRedireccion(address _sender, uint256 _idPrueba) public {        
+    function rechazaRedireccion(address _sender, uint256 _idPrueba) public onlyOwner {        
         /*
             Solo pueden eliminar una redireccion:
                 - El centro realizador actual ( porque ya lo ha operado )
@@ -216,7 +230,7 @@ contract ListaEsperaStorage{
         gestorRedirecciones.eliminaRedireccion(_sender, _idPrueba);
     }
 
-    function aceptaRedireccion(address _sender, uint256 _idPrueba) public {
+    function aceptaRedireccion(address _sender, uint256 _idPrueba) public  onlyOwner {
 
         ListaEsperaStorageCentros gestorCentros = ListaEsperaStorageCentros(addressGestorCentros);
         ListaEsperaStoragePruebasDiagnosticas gestorPruebas = ListaEsperaStoragePruebasDiagnosticas(addressGestorPruebasDiagnosticas);
@@ -229,23 +243,23 @@ contract ListaEsperaStorage{
     }
     
     // FUnciones de listados *************************************************************************
-    function listarPruebasPorPaciente(string calldata _idPaciente) public view returns (uint256[] memory) {
+    function listarPruebasPorPaciente(string calldata _idPaciente) public view onlyOwner returns (uint256[] memory) {
         ListaEsperaStoragePruebasDiagnosticas gestorPruebas = ListaEsperaStoragePruebasDiagnosticas(addressGestorPruebasDiagnosticas);
         return gestorPruebas.listaPruebasPorPaciente(_idPaciente);
 
     }
 
-    function listarPruebasPorCentro(address _centro) public view returns (uint256[] memory) {
+    function listarPruebasPorCentro(address _centro) public view onlyOwner returns (uint256[] memory) {
         ListaEsperaStoragePruebasDiagnosticas gestorPruebas = ListaEsperaStoragePruebasDiagnosticas(addressGestorPruebasDiagnosticas);
         return gestorPruebas.listaPruebasPorCentro(_centro);
     }
 
-    function listarRedireccionesPorCentro(address _centro) public view returns (uint256[] memory) {
+    function listarRedireccionesPorCentro(address _centro) public view onlyOwner returns (uint256[] memory) {
         ListaEsperaStorageRedirecciones gestorRedirecciones = ListaEsperaStorageRedirecciones(addressGestorRedirecciones);
         return gestorRedirecciones.listaRedireccionesPorCentro(_centro);
     }
 
-    function getPrueba(uint256 _idPrueba) public view returns (PruebaDiagnostica memory) {
+    function getPrueba(uint256 _idPrueba) public view onlyOwner returns (PruebaDiagnostica memory) {
         ListaEsperaStoragePruebasDiagnosticas gestorPruebas = ListaEsperaStoragePruebasDiagnosticas(addressGestorPruebasDiagnosticas);
         return gestorPruebas.getPruebaDiagnostica(_idPrueba);
     }
@@ -253,17 +267,10 @@ contract ListaEsperaStorage{
     // Funciones de exportacion  de datos*******************************************************************
 
     // pruebasDiagnosticas
-    function exportaPruebasDiagnosticas() public view returns (PruebaDiagnostica[] memory) {
- /*
-        require(msg.sender == admin, "Solo el admin puede obtener todas las pruebas Diagnosticas de la lista de espera");
-
-        PruebaDiagnostica[] memory pruebas = new PruebaDiagnostica[] (nextIdPrueba);
-        //OJO!! que la primera prueba qye introducimos tiene id 1.
-        for (uint i = 1; i <= nextIdPrueba; i++) {
-            pruebas[i] = pruebasDiagnosticas[i];
-        }
-        return pruebas;
-        */
+    function exportaPruebasDiagnosticas() public view onlyAdmin returns (PruebaDiagnostica[] memory) {
+ 
+        ListaEsperaStoragePruebasDiagnosticas gestorPruebas = ListaEsperaStoragePruebasDiagnosticas(addressGestorPruebasDiagnosticas);
+        return gestorPruebas.exportaPruebasDiagnosticas();
     }
    
 }
