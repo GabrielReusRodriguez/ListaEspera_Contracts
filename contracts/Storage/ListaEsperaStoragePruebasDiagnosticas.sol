@@ -114,7 +114,7 @@ contract ListaEsperaStoragePruebasDiagnosticas{
 
     function eliminaRedireccion(uint256 _idPrueba, bool aceptada) public onlyOwner {
         require(esPruebaActiva(_idPrueba), "La prueba no esta activa");
-        require(tieneRedireccion(_idPrueba) == false, "La prueba  ya tiene redireccion");
+        require(tieneRedireccion(_idPrueba) == true, "La prueba  NO tiene redireccion");
 
         PruebaDiagnostica storage prueba = pruebasDiagnosticas[_idPrueba];
         if (aceptada) {
