@@ -84,6 +84,46 @@ contract ListaEsperaStoragePruebasDiagnosticas{
         return false;
     }
 
+    function esPruebaActiva(uint256 _idPrueba) public view onlyOwner returns (bool) {
+        require(pruebasDiagnosticas[_idPrueba].idPrueba != 0, "La prueba no existe");
+        return pruebasDiagnosticas[_idPrueba].activa;
+    }
+
+    function tieneRedireccion(uint256 _idPrueba) public view onlyOwner returns (bool)
+    {
+        require(pruebasDiagnosticas[_idPrueba].idPrueba != 0, "La prueba no existe");
+        return pruebasDiagnosticas[_idPrueba].propuestaRedireccion;
+    }
+
+    function esCentroDestinoRedireccion(uint256 _idPrueba, address _centroDestino) public view onlyOwner returns (bool) {
+        if (pruebasDiagnosticas[_idPrueba].idPrueba != 0){
+            return pruebasDiagnosticas[_idPrueba].centroDestinoRedireccion == _centroDestino;
+        }
+        revert("La prueba no existe");
+        
+    }
+
+    function nuevaRedireccion(uint256 _idPrueba, address _nuevoCentro) public onlyOwner {
+        require(esPruebaActiva(_idPrueba), "La prueba no esta activa");
+        require(tieneRedireccion(_idPrueba) == false, "La prueba  ya tiene redireccion");
+
+        PruebaDiagnostica storage prueba = pruebasDiagnosticas[_idPrueba];
+        prueba.propuestaRedireccion = true;
+        prueba.centroDestinoRedireccion = _nuevoCentro;
+    }
+
+    function eliminaRedireccion(uint256 _idPrueba, bool aceptada) public onlyOwner {
+        require(esPruebaActiva(_idPrueba), "La prueba no esta activa");
+        require(tieneRedireccion(_idPrueba) == false, "La prueba  ya tiene redireccion");
+
+        PruebaDiagnostica storage prueba = pruebasDiagnosticas[_idPrueba];
+        if (aceptada) {
+            prueba.centroRealizador = prueba.centroDestinoRedireccion;
+        }
+        prueba.centroDestinoRedireccion = address(0);
+        prueba.propuestaRedireccion = true;
+    }
+
     function getPruebaDiagnostica(uint _idPrueba) public view onlyOwner returns (PruebaDiagnostica memory) {
         require(nextIdPrueba > 0, "No hay registradas ninguna  prueba");
         require(pruebasDiagnosticas[_idPrueba].idPrueba != 0, "No esiste la prueba reclamada");
@@ -183,14 +223,15 @@ contract ListaEsperaStoragePruebasDiagnosticas{
             return false;
     }
 
-    // Funciones de exportacion  de datos*******************************************************************
+    function listaPruebasPorPaciente(string calldata _idPaciente) public view onlyOwner returns (uint256[] memory){
+        return pruebasPorPaciente[_idPaciente];
+    }
 
-    //Centros ya lo hemos declarado.
-    /*
-        En la propia estructura de  datos de PruebaDiagnostica ya tenemos el identificador de centro, los identificadores de la redireccion y de paciente por lo que con 
-        esa información ya se deberia ser capaz de reconstruir la bbdd sin tener que pasar los mappings que relacionan.
-        Solo faltaría exportar las solicitudes de redireccion de ese instante.
-    */
+    function listaPruebasPorCentro(address _centro) public view onlyOwner returns (uint256[] memory) {
+        return pruebasPorCentro[_centro];
+    }
+
+    // Funciones de exportacion  de datos*******************************************************************
 
     // pruebasDiagnosticas
     function exportaPruebasDiagnosticas() public view onlyOwner returns (PruebaDiagnostica[] memory) {

@@ -30,10 +30,11 @@ struct PruebaDiagnostica {
     bool        propuestaRedireccion;
 }
 
+/*
 // Definicion de solicitud de redireccion
 struct SolicitudRedireccion {
     uint256 idPrueba;
     address centroOrigen;
     address centroDestino;
-    string idPaciente;
 }
+*/

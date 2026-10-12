@@ -18,8 +18,9 @@ contract ListaEsperaStorageRedirecciones{
     address private owner;
 
     // Para cada centro (address de centro) obtenemos la lista de solicitudes de redireccion que ha recibido.
-    mapping(address => SolicitudRedireccion[]) private solicitudesRedirecciones;
-
+    //mapping(address => SolicitudRedireccion[]) private solicitudesRedirecciones;
+    mapping(address => uint256[]) private solicitudesRedirecciones;
+    
     // Modifiers ********************************************************************************************************************************
 
     modifier onlyOwner() {
@@ -59,10 +60,8 @@ contract ListaEsperaStorageRedirecciones{
     // Funciones sobre redirecciones *********************************************************************************************************
 
     function nuevaRedireccion(
-        uint256 _idPrueba, 
-        string calldata _idPaciente, 
-        address _centroOrigen, 
-        address _centroDestino 
+        uint256 _idPrueba,
+        address _centroDestino
             ) public onlyOwner activeContract {
         //require(_esCentroActivo(_sender), "El emisor no es un centro valido para redireccionar");
         //require(_esCentroActivo(_centroDestino), "El destino no es un centro activo o valido");
@@ -71,37 +70,13 @@ contract ListaEsperaStorageRedirecciones{
         //require(pruebasDiagnosticas[_idPrueba].activa  == true, "La prueba no esta activa");
         //require(pruebasDiagnosticas[_idPrueba].propuestaRedireccion == false, "La prueba ya tiene una propuesta de redireccion");
 
-        SolicitudRedireccion[] storage  redireccionesPorCentro = solicitudesRedirecciones[_centroDestino];
-        SolicitudRedireccion memory redireccion = SolicitudRedireccion({
-            idPrueba        : _idPrueba,
-            centroOrigen    : _centroOrigen,
-            centroDestino   : _centroDestino,
-            idPaciente      : _idPaciente
-        });
-        redireccionesPorCentro.push(redireccion);
+        uint256[] storage  redireccionesPorCentro = solicitudesRedirecciones[_centroDestino];
+        redireccionesPorCentro.push(_idPrueba);
         //prueba.centroDestinoRedireccion = _centroDestino;
         //prueba.propuestaRedireccion = true;
     }
 
-    function getRedireccion(address _centroDestinoRedireccion, uint256 _idPrueba) public view onlyOwner activeContract returns (SolicitudRedireccion memory ) {
-        SolicitudRedireccion[] memory solicitudes = solicitudesRedirecciones[_centroDestinoRedireccion];
-        for (uint i = 0; i < solicitudes.length; i++) {
-            if (solicitudes[i].idPrueba == _idPrueba) {
-                return solicitudes[i];
-            }
-        }
-        revert("Redireccion NO encontrada");
-    }
-
     function eliminaRedireccion(address _centroDestinoRedireccion, uint256 _idPrueba) public onlyOwner activeContract {        
-         //require(_prueba.propuestaRedireccion, "La prueba no esta en estado redireccionada");
-        
-        /*
-            Solo pueden eliminar una redireccion:
-                - El centro realizador actual ( porque ya lo ha operado )
-                - El centro destinatario ( la  rechaza )
-                - La aseguradora ( como admin medico )
-        */
         /*
         require(_sender == _prueba.centroDestinoRedireccion ||
             _sender == aseguradora ||
@@ -110,10 +85,10 @@ contract ListaEsperaStorageRedirecciones{
         */
         //Borramos la redireccion de la prueba
         
-        SolicitudRedireccion[] storage _solicitudesRedireccion = solicitudesRedirecciones[_centroDestinoRedireccion];
+        uint256[] storage _solicitudesRedireccion = solicitudesRedirecciones[_centroDestinoRedireccion];
 
         for (uint i = 0; i < _solicitudesRedireccion.length; i++) {
-            if (_solicitudesRedireccion[i].idPrueba == _idPrueba) {
+            if (_solicitudesRedireccion[i] == _idPrueba) {
                 /*
                     EL delete solo pone el valor de la variable a default pero no elimina la posicion del vector, no lo haec mas corto.
                     Para eso tenemos que mover el valor a la ultima posicion y hacer un pop.
@@ -129,6 +104,12 @@ contract ListaEsperaStorageRedirecciones{
                 break;
             }
         }
+        revert("La redireccion solicitada no existia");
     }
-  
+
+    function listaRedireccionesPorCentro(address _centroDestinoRedireccion) public view onlyOwner returns (uint256[] memory) {
+        return solicitudesRedirecciones[_centroDestinoRedireccion];
+    }
+
+
 }
