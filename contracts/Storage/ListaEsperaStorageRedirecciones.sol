@@ -85,7 +85,7 @@ contract ListaEsperaStorageRedirecciones{
                 }
                 // Hago pop para eliminar del vector la ultima posicion, ahora el vector será más croto
                 _solicitudesRedireccion.pop();
-                break;
+                return;
             }
         }
         revert("La redireccion solicitada no existia");
