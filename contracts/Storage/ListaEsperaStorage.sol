@@ -137,14 +137,14 @@ contract ListaEsperaStorage{
         string calldata _codigoPrueba,
         uint16  _maximoDiasDemora,
         uint256 _timestampAlta
-        ) public  activeContract {
+        ) public  activeContract returns (uint256){
         
         ListaEsperaStorageCentros gestorCentros =  ListaEsperaStorageCentros(addressGestorCentros);
         require(gestorCentros.esCentroActivo(_centroRealizador) == true, "El centro realizador no es un centro activo");
 
 
         ListaEsperaStoragePruebasDiagnosticas gestorPruebas = ListaEsperaStoragePruebasDiagnosticas(addressGestorPruebasDiagnosticas);
-        gestorPruebas.altaPruebaDiagnostica({
+        return gestorPruebas.altaPruebaDiagnostica({
             _centroRealizador : _centroRealizador,
             _idPaciente : _idPaciente,
             _diagnostico : _diagnostico,
@@ -154,7 +154,6 @@ contract ListaEsperaStorage{
         });
     }  
 
-    // Modificamos una prueba, hacemos 2 funciones una parqa modificar los datos de baja y otra para los datos de la redireccion.
     function bajaPruebaDiagnostica(address _centroRealizador, uint256 _idPrueba, uint256 _timestampBaja, uint16 _motivoDeBaja) public {
     
         ListaEsperaStorageCentros gestorCentros =  ListaEsperaStorageCentros(addressGestorCentros);

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import "./IListaEsperaEvents.sol";
 import "./ListaEsperaTypes.sol";
 
 /*
@@ -22,23 +21,24 @@ import "./ListaEsperaTypes.sol";
 
 */
 
-interface IListaEspera is IListaEsperaEvents {
+interface IListaEspera {
 
     function alta(
+        address _centroRealizador,
         string calldata _idPaciente, 
         string calldata _codigoPrueba,
         string calldata _diagnostico,
         uint16 _diasDemora,
         uint256 _timestampAlta
-        ) external;
+        ) external returns (uint256);
 
     function listaPruebasPorPaciente(
         string calldata _idPaciente
-    ) external view returns (PruebaDiagnostica[] memory);
+    ) external view returns (uint256[] memory);
 
     function listaPruebasPorCentro(
         address _centro
-    ) external view returns (PruebaDiagnostica[] memory);
+    ) external view returns (uint256[] memory);
 
     function obtenerPruebaPorId(
         uint256 _idPrueba
@@ -49,24 +49,30 @@ interface IListaEspera is IListaEsperaEvents {
     ) external view;
 
     function creaRedireccion(
+        address _solicitante,
         uint256 _idPrueba,
         address _centroDestino
     ) external;
 
     function listaRedireccionesPendientes(
-
-    ) external view returns (SolicitudRedireccion[] memory);
+        address _solicitante
+    ) external view returns (uint256 [] memory);
 
     function aceptaRedireccion(
+        address _solicitante,
         uint256 _idPrueba
     ) external;
     
     function rechazaRedireccion(
+        address _solicitante,
         uint256 _idPrueba
     ) external;
     
     function baja(
-        uint256 _idPrueba
+        address _solicitante,
+        uint256 _idPrueba,
+        uint256 _timestampBaja, 
+        uint16 _motivoDeBaja
     ) external;
 
 }

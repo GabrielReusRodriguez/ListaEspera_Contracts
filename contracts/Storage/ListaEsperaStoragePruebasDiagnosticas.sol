@@ -139,7 +139,7 @@ contract ListaEsperaStoragePruebasDiagnosticas{
         string calldata _codigoPrueba,
         uint16  _maximoDiasDemora,
         uint256 _timestampAlta
-        ) public  onlyOwner activeContract {
+        ) public  onlyOwner activeContract returns (uint256) {
 
         //La larga lista de validaciones
         require(isEmptyString(_idPaciente) == false, "El id del paciente no puede estar vacio");
@@ -174,6 +174,7 @@ contract ListaEsperaStoragePruebasDiagnosticas{
         pruebasPorPaciente[prueba.idPaciente].push(prueba.idPrueba);
         //Todo bien, asi que acutalizo el indice de nextIdPrueba global.
         nextIdPrueba = _nextIdPrueba;
+        return prueba.idPrueba;
     }  
 
     // Modificamos una prueba, hacemos 2 funciones una parqa modificar los datos de baja y otra para los datos de la redireccion.

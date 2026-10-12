@@ -31,7 +31,7 @@ interface IListaEsperaEvents {
         uint256 timestampAlta, 
         string diagnostico, 
         string codigoPrueba, 
-        uint16 prioridad
+        uint16 maximoDiasDemora
         );
 
     /*
@@ -76,7 +76,7 @@ interface IListaEsperaEvents {
         uint256 indexed pruebaID, 
         string indexed CIP, 
         uint256 timestampBaja, 
-        string motivo
+        uint16 motivo
         );
 
 }
