@@ -69,13 +69,6 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
         return implementation.obtenerPruebaPorId(_idPrueba);
     }
 
-    
-    function muestraLogsPrueba(
-        uint256 _idPrueba
-    ) external override view {
-
-    }
-
     function creaRedireccion(
         address _solicitante,
         uint256 _idPrueba,
@@ -93,8 +86,7 @@ contract ListaEspera is IListaEspera, IListaEsperaEvents{
     ) external override view returns (uint256 [] memory) {
 
         ListaEsperaImpl implementation = ListaEsperaImpl(addrImplementation);
-        
-
+        return implementation.listaRedireccionesPendientes(_solicitante);
     }
 
     function aceptaRedireccion(

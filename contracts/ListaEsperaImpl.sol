@@ -53,13 +53,6 @@ contract ListaEsperaImpl is IListaEspera{
         return gestorStorage.getPrueba(_idPrueba);
     }
 
-    
-    function muestraLogsPrueba(
-        uint256 _idPrueba
-    ) external override view {
-
-    }
-
     function creaRedireccion(
         address _solicitante,
         uint256 _idPrueba,
@@ -75,8 +68,7 @@ contract ListaEsperaImpl is IListaEspera{
     ) external view override returns (uint256 [] memory) {
 
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
-        
-
+        return gestorStorage.listarRedireccionesPorCentro(_solicitante);
     }
 
     function aceptaRedireccion(

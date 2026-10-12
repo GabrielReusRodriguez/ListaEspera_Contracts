@@ -44,10 +44,6 @@ interface IListaEspera {
         uint256 _idPrueba
     ) external view returns (PruebaDiagnostica memory);
     
-    function muestraLogsPrueba(
-        uint256 _idPrueba
-    ) external view;
-
     function creaRedireccion(
         address _solicitante,
         uint256 _idPrueba,
