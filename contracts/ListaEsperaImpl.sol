@@ -163,4 +163,16 @@ contract ListaEsperaImpl is IListaEspera{
         activo = false;
 
     }
+
+    function listaCentros() external view returns (Centro[] memory) {
+        ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
+        return gestorStorage.listaCentros();
+    }
+
+    function creaCentro(address _sender, address _centro, string calldata _nombre ) external override{
+        ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
+        gestorStorage.creaCentro(_sender, _centro, _nombre );
+    }
+
+
 }

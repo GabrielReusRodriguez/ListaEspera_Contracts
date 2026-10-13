@@ -137,9 +137,15 @@ contract ListaEsperaStorage{
     }
 
     // Funciones sobre los centros ****************************************************************************
-    function creaCentro(address _centro, string calldata _nombre ) public onlyAseguradora{
+    function creaCentro(address _sender, address _centro, string calldata _nombre ) public onlyOwner{
+        require(_sender == aseguradora, "Solo puede agregar centros la aseguradora");
         ListaEsperaStorageCentros gestorCentros = ListaEsperaStorageCentros(addressGestorCentros);
         gestorCentros.nuevoCentro(_centro, _nombre);
+    }
+
+    function listaCentros() public  view returns (Centro[] memory){
+        ListaEsperaStorageCentros gestorCentros = ListaEsperaStorageCentros(addressGestorCentros);
+        return gestorCentros.getCentros();
     }
 
     // RECUERDA!!! el msg.sender será el contrato de implementacion por lo que siempre hay que pasar el address del wallet que lo ejecuta.

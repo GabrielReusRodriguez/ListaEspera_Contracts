@@ -175,4 +175,16 @@ contract ListaEspera is IListaEsperaEvents{
         activo = false;
 
     }
+
+    function listaCentros() external view returns (Centro[] memory) {
+        IListaEspera implementation = _impl();
+        return implementation.listaCentros();
+    }
+
+    function creaCentro(address _centro, string calldata _nombre ) external {
+        IListaEspera implementation = _impl();
+        
+        implementation.creaCentro(msg.sender, _centro, _nombre );
+    }
+
 }

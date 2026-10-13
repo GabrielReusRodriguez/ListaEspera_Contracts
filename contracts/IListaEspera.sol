@@ -75,4 +75,8 @@ interface IListaEspera {
 
     function disable() external;
 
+    function listaCentros() external view returns (Centro[] memory);
+
+    function creaCentro(address _sender, address _centro, string calldata _nombre ) external;
+
 }

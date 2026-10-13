@@ -24,3 +24,7 @@ ListaEsperaStorage: 0x93BbBA5a2749b77d705570F66D3Da33c972F2587
 ListaEsperaStorageCentros: 0x39CA5364cccfF03930c20de433198aDbacE7909c
 ListaEsperaStoragePruebasDiagnosticas: 0xCf4bb282A347578afc263C24d9d32950A543d023
 ListaEsperaStorageRedirecciones: 0x15AE9AA43444be84400391E3819F7030B3c82E0f
+
+POST deploy 
+ - añado mi cuenta con fondos como aseguradora en ListaEsperaStorage 0x97d96A363f5e59721e30aBCdb316Da8CF9541CF0
+ - añado mi cuenta con fondos como centro Hospital Dos de mayo en ListaEsperaStorage 0x97d96A363f5e59721e30aBCdb316Da8CF9541CF0
