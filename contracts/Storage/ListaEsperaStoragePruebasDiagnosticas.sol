@@ -250,7 +250,7 @@ contract ListaEsperaStoragePruebasDiagnosticas{
         PruebaDiagnostica[] memory pruebas = new PruebaDiagnostica[] (nextIdPrueba);
         //OJO!! que la primera prueba qye introducimos tiene id 1.
         for (uint i = 1; i <= nextIdPrueba; i++) {
-            pruebas[i] = pruebasDiagnosticas[i];
+            pruebas[i - 1] = pruebasDiagnosticas[i];
         }
         return pruebas;
     }

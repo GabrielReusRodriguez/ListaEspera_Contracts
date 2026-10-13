@@ -118,6 +118,9 @@ contract ListaEsperaImpl is IListaEspera{
     ) external override contratoActivo onlyOwner {
 
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
+        PruebaDiagnostica memory prueba  = gestorStorage.getPrueba(_idPrueba);
+        require(_solicitante == prueba.centroDestinoRedireccion, "No tienes permiso para aceptar la redireccion");
+
         gestorStorage.aceptaRedireccion(_solicitante, _idPrueba);
     }
     
@@ -127,6 +130,9 @@ contract ListaEsperaImpl is IListaEspera{
     ) external override contratoActivo onlyOwner {
 
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
+        PruebaDiagnostica memory prueba  = gestorStorage.getPrueba(_idPrueba);
+        require(_solicitante == prueba.centroDestinoRedireccion, "No tienes permiso para rechazar la redireccion");
+
         gestorStorage.rechazaRedireccion(_solicitante, _idPrueba);
     }
 
