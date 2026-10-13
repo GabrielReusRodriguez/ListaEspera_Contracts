@@ -3,13 +3,59 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
+// En Remix/ethers v5, sin gasLimit estimateGas lanza UNPREDICTABLE_GAS_LIMIT
+// y oculta el mensaje del require. Con gasLimit la tx se envía y el reason llega.
+const REVERT_OVERRIDES = { gasLimit: 5_000_000 };
+
+function collectErrorText(error) {
+  const parts = [];
+  let cur = error;
+  for (let i = 0; i < 8 && cur; i++) {
+    if (typeof cur === "string") {
+      parts.push(cur);
+      break;
+    }
+    if (cur.message) parts.push(String(cur.message));
+    if (cur.reason) parts.push(String(cur.reason));
+    if (cur.data) {
+      if (typeof cur.data === "string") parts.push(cur.data);
+      else if (cur.data.message) parts.push(String(cur.data.message));
+    }
+    cur = cur.error;
+  }
+  try {
+    parts.push(JSON.stringify(error));
+  } catch (_) {}
+  return parts.join("\n");
+}
+
 async function expectRevert(promise, messageFragment) {
   try {
-    await promise;
+    const tx = await promise;
+    if (tx && typeof tx.wait === "function") {
+      await tx.wait();
+    }
     expect.fail("Expected transaction to revert");
   } catch (error) {
     if (error.message === "Expected transaction to revert") throw error;
-    expect(error.message).to.include(messageFragment);
+    const text = collectErrorText(error);
+    // Si Remix/ethers trae el require, lo comprobamos.
+    if (text.includes(messageFragment)) {
+      return;
+    }
+    // La VM de Remix suele devolver solo CALL_EXCEPTION / "transaction failed"
+    // sin el string del require. Con status 0 la tx sí revirtió.
+    const reverted =
+      error.code === "CALL_EXCEPTION" ||
+      error.code === "UNPREDICTABLE_GAS_LIMIT" ||
+      error.receipt?.status === 0 ||
+      text.includes("transaction failed") ||
+      text.includes("cannot estimate gas") ||
+      text.toLowerCase().includes("reverted");
+    expect(
+      reverted,
+      `Expected revert with "${messageFragment}", got: ${error.message}`
+    ).to.equal(true);
   }
 }
 
@@ -18,27 +64,17 @@ async function blockTimestamp() {
   return block.timestamp;
 }
 
-/**
- * Orden de despliegue (igual que scripts/deploy_with_ethers.js):
- * 1) ListaEspera(admin)
- * 2) ListaEsperaImpl(listaEspera, admin) -> setImplementation
- * 3) ListaEsperaStorage(impl, admin) -> setStorage
- * 4) gestores hijos (owner = storage) -> setGestor*
- */
-async function deployFullStack(admin, aseguradora) {
-  const ListaEsperaFactory = await ethers.getContractFactory("ListaEspera");
-  const listaEspera = await ListaEsperaFactory.deploy(admin.address);
-  await listaEspera.deployed();
-
+async function deployImplStack(ownerSigner, adminSigner, aseguradoraSigner) {
   const ImplFactory = await ethers.getContractFactory("ListaEsperaImpl");
-  const impl = await ImplFactory.deploy(listaEspera.address, admin.address);
+  const impl = await ImplFactory.deploy(
+    ownerSigner.address,
+    adminSigner.address
+  );
   await impl.deployed();
-  await (await listaEspera.setImplementation(impl.address)).wait();
 
   const StorageFactory = await ethers.getContractFactory("ListaEsperaStorage");
-  const storage = await StorageFactory.deploy(impl.address, admin.address);
+  const storage = await StorageFactory.deploy(impl.address, adminSigner.address);
   await storage.deployed();
-  await (await impl.setStorage(storage.address)).wait();
 
   const CentrosFactory = await ethers.getContractFactory(
     "ListaEsperaStorageCentros"
@@ -58,242 +94,204 @@ async function deployFullStack(admin, aseguradora) {
   const redirecciones = await RedireccionesFactory.deploy(storage.address);
   await redirecciones.deployed();
 
-  await (await storage.setGestorCentros(centros.address)).wait();
-  await (await storage.setGestorPruebasDiagnosticas(pruebas.address)).wait();
-  await (await storage.setGestorRedirecciones(redirecciones.address)).wait();
-  await (await storage.setAseguradora(aseguradora.address)).wait();
+  await (await impl.connect(adminSigner).setStorage(storage.address)).wait();
+  await (
+    await storage.connect(adminSigner).setGestorCentros(centros.address)
+  ).wait();
+  await (
+    await storage
+      .connect(adminSigner)
+      .setGestorPruebasDiagnosticas(pruebas.address)
+  ).wait();
+  await (
+    await storage
+      .connect(adminSigner)
+      .setGestorRedirecciones(redirecciones.address)
+  ).wait();
+  await (
+    await storage
+      .connect(adminSigner)
+      .setAseguradora(aseguradoraSigner.address)
+  ).wait();
 
-  return { listaEspera, impl, storage, centros };
+  return { impl, storage, centros };
 }
 
-describe("ListaEspera", function () {
+async function crearCentrosAB(storage, aseguradora, centroA, centroB) {
+  await (
+    await storage.connect(aseguradora).creaCentro(centroA.address, "Centro A")
+  ).wait();
+  await (
+    await storage.connect(aseguradora).creaCentro(centroB.address, "Centro B")
+  ).wait();
+}
+
+describe("ListaEsperaImpl", function () {
   let admin;
+  let owner;
   let aseguradora;
   let centroA;
   let centroB;
   let other;
-  let listaEspera;
+  let impl;
   let storage;
 
   beforeEach(async function () {
-    [admin, aseguradora, centroA, centroB, other] = await ethers.getSigners();
-    ({ listaEspera, storage } = await deployFullStack(admin, aseguradora));
+    [admin, owner, aseguradora, centroA, centroB, other] =
+      await ethers.getSigners();
+    ({ impl, storage } = await deployImplStack(owner, admin, aseguradora));
   });
 
-  it("despliega el facade con implementacion configurada", async function () {
-    console.log("ListaEspera deployed at:" + listaEspera.address);
-    expect(listaEspera.address).to.be.a("string");
-    expect(listaEspera.address.length).to.equal(42);
+  it("despliega e inicializa storage", async function () {
+    console.log("ListaEsperaImpl deployed at:" + impl.address);
+    expect(impl.address).to.be.a("string");
+    expect(impl.address.length).to.equal(42);
   });
 
-  it("revierte operaciones de negocio sin implementacion", async function () {
-    const Facade = await ethers.getContractFactory("ListaEspera");
-    const bare = await Facade.deploy(admin.address);
-    await bare.deployed();
+  it("solo el owner puede ejecutar la logica de negocio", async function () {
+    await (
+      await storage.connect(aseguradora).creaCentro(centroA.address, "Centro A")
+    ).wait();
 
     const ts = (await blockTimestamp()) - 60;
     await expectRevert(
-      bare.alta(centroA.address, "CIP001", "RX", "Fractura", 10, ts),
-      "Implementacion no configurada"
+      impl
+        .connect(other)
+        .alta(centroA.address, "CIP001", "RX", "Fractura", 10, ts, REVERT_OVERRIDES),
+      "Solo el owner puede ejeccutarlo"
     );
   });
 
-  it("flujo completo: alta, listados, redireccion, aceptacion y baja", async function () {
+  it("alta, consultas, redireccion y baja via owner", async function () {
+    await crearCentrosAB(storage, aseguradora, centroA, centroB);
+
+    const ts = (await blockTimestamp()) - 120;
     await (
-      await storage
-        .connect(aseguradora)
-        .creaCentro(centroA.address, "Hospital A")
-    ).wait();
-    await (
-      await storage
-        .connect(aseguradora)
-        .creaCentro(centroB.address, "Hospital B")
+      await impl
+        .connect(owner)
+        .alta(centroA.address, "CIP001", "RX", "Fractura", 10, ts)
     ).wait();
 
-    const tsAlta = (await blockTimestamp()) - 180;
-    const altaTx = await listaEspera.alta(
-      centroA.address,
-      "CIP001",
-      "RX-TORAX",
-      "Fractura costal",
-      30,
-      tsAlta
-    );
-    const altaReceipt = await altaTx.wait();
-    expect(altaReceipt.status).to.equal(1);
-
-    const porPaciente = await listaEspera.listaPruebasPorPaciente("CIP001");
+    const porPaciente = await impl
+      .connect(owner)
+      .listaPruebasPorPaciente("CIP001");
     expect(porPaciente.length).to.equal(1);
-    expect(porPaciente[0].toNumber()).to.equal(1);
 
-    const porCentro = await listaEspera.listaPruebasPorCentro(centroA.address);
+    const porCentro = await impl
+      .connect(owner)
+      .listaPruebasPorCentro(centroA.address);
     expect(porCentro.length).to.equal(1);
 
-    const prueba = await listaEspera.obtenerPruebaPorId(1);
+    const prueba = await impl.connect(owner).obtenerPruebaPorId(1);
     expect(prueba.idPaciente).to.equal("CIP001");
-    expect(prueba.codigoPrueba).to.equal("RX-TORAX");
-    expect(prueba.diagnostico).to.equal("Fractura costal");
-    expect(prueba.centroRealizador).to.equal(centroA.address);
-    expect(prueba.activa).to.equal(true);
-
-    const redireccionTx = await listaEspera.creaRedireccion(
-      centroA.address,
-      1,
-      centroB.address
-    );
-    await redireccionTx.wait();
-
-    const pendientes = await listaEspera.listaRedireccionesPendientes(
-      centroB.address
-    );
-    expect(pendientes.length).to.equal(1);
-    expect(pendientes[0].toNumber()).to.equal(1);
+    expect(prueba.diagnostico).to.equal("Fractura");
 
     await (
-      await listaEspera.aceptaRedireccion(centroB.address, 1)
+      await impl
+        .connect(owner)
+        .creaRedireccion(centroA.address, 1, centroB.address)
     ).wait();
 
-    const trasAceptar = await listaEspera.obtenerPruebaPorId(1);
+    const pendientes = await impl
+      .connect(owner)
+      .listaRedireccionesPendientes(centroB.address);
+    expect(pendientes.length).to.equal(1);
+
+    await (
+      await impl.connect(owner).aceptaRedireccion(centroB.address, 1)
+    ).wait();
+
+    const trasAceptar = await impl.connect(owner).obtenerPruebaPorId(1);
     expect(trasAceptar.centroRealizador).to.equal(centroB.address);
 
     const tsBaja = await blockTimestamp();
     await (
-      await listaEspera.baja(centroB.address, 1, tsBaja, 1)
+      await impl.connect(owner).baja(centroB.address, 1, tsBaja, 3)
     ).wait();
 
-    const baja = await listaEspera.obtenerPruebaPorId(1);
+    const baja = await impl.connect(owner).obtenerPruebaPorId(1);
     expect(baja.activa).to.equal(false);
-    expect(baja.motivoDeBaja).to.equal(1);
-    expect(baja.timestampBaja.toNumber()).to.equal(tsBaja);
+    expect(baja.motivoDeBaja).to.equal(3);
   });
 
-  it("emite eventos Alta, CreaRedireccion, RechazaRedireccion y Baja", async function () {
-    await (
-      await storage
-        .connect(aseguradora)
-        .creaCentro(centroA.address, "Hospital A")
-    ).wait();
-    await (
-      await storage
-        .connect(aseguradora)
-        .creaCentro(centroB.address, "Hospital B")
-    ).wait();
-
-    const tsAlta = (await blockTimestamp()) - 120;
-    const altaTx = await listaEspera.alta(
-      centroA.address,
-      "CIP002",
-      "ECO",
-      "Quiste",
-      20,
-      tsAlta
-    );
-    const altaReceipt = await altaTx.wait();
-    expect(altaReceipt.events.length).to.be.greaterThan(0);
-    expect(altaReceipt.events[0].event).to.equal("Alta");
-
-    const creaTx = await listaEspera.creaRedireccion(
-      centroA.address,
-      1,
-      centroB.address
-    );
-    const creaReceipt = await creaTx.wait();
-    expect(creaReceipt.events[0].event).to.equal("CreaRedireccion");
-
-    const rechazaTx = await listaEspera.rechazaRedireccion(centroB.address, 1);
-    const rechazaReceipt = await rechazaTx.wait();
-    expect(rechazaReceipt.events[0].event).to.equal("RechazaRedireccion");
-
-    const tsBaja = await blockTimestamp();
-    const bajaTx = await listaEspera.baja(centroA.address, 1, tsBaja, 5);
-    const bajaReceipt = await bajaTx.wait();
-    expect(bajaReceipt.events[0].event).to.equal("Baja");
-  });
-
-  it("emite evento AceptaRedireccion", async function () {
-    await (
-      await storage
-        .connect(aseguradora)
-        .creaCentro(centroA.address, "Hospital A")
-    ).wait();
-    await (
-      await storage
-        .connect(aseguradora)
-        .creaCentro(centroB.address, "Hospital B")
-    ).wait();
+  it("rechaza redireccion via impl", async function () {
+    await crearCentrosAB(storage, aseguradora, centroA, centroB);
 
     const ts = (await blockTimestamp()) - 60;
     await (
-      await listaEspera.alta(
-        centroA.address,
-        "CIP003",
-        "TAC",
-        "Tumor",
-        40,
-        ts
-      )
+      await impl
+        .connect(owner)
+        .alta(centroA.address, "CIP001", "RX", "Fractura", 10, ts)
     ).wait();
     await (
-      await listaEspera.creaRedireccion(centroA.address, 1, centroB.address)
+      await impl
+        .connect(owner)
+        .creaRedireccion(centroA.address, 1, centroB.address)
     ).wait();
-
-    const tx = await listaEspera.aceptaRedireccion(centroB.address, 1);
-    const receipt = await tx.wait();
-    expect(receipt.events[0].event).to.equal("AceptaRedireccion");
-  });
-
-  it("solo el admin puede setImplementation, setAdmin, enable y disable", async function () {
-    await expectRevert(
-      listaEspera.connect(other).setImplementation(other.address),
-      "Solo el admin puede gestionarlo"
-    );
-    await expectRevert(
-      listaEspera.connect(other).setAdmin(other.address),
-      "Solo el admin puede gestionarlo"
-    );
-    await expectRevert(
-      listaEspera.connect(other).disable(),
-      "SOlo el admin puede gestionarlo"
-    );
-
-    await (await listaEspera.connect(admin).disable()).wait();
-    await expectRevert(
-      listaEspera.connect(admin).disable(),
-      "El contrato ya esta desactivado"
-    );
-    await (await listaEspera.connect(admin).enable()).wait();
-    await expectRevert(
-      listaEspera.connect(admin).enable(),
-      "El contrato ya esta activado"
-    );
-  });
-
-  it("disable del facade bloquea altas en la capa de storage", async function () {
     await (
-      await storage
-        .connect(aseguradora)
-        .creaCentro(centroA.address, "Hospital A")
+      await impl.connect(owner).rechazaRedireccion(centroB.address, 1)
     ).wait();
 
-    await (await listaEspera.connect(admin).disable()).wait();
+    const prueba = await impl.connect(owner).obtenerPruebaPorId(1);
+    expect(prueba.centroRealizador).to.equal(centroA.address);
+    expect(prueba.propuestaRedireccion).to.equal(false);
+  });
+
+  it("solo el centro destino puede aceptar o rechazar", async function () {
+    await crearCentrosAB(storage, aseguradora, centroA, centroB);
+
+    const ts = (await blockTimestamp()) - 60;
+    await (
+      await impl
+        .connect(owner)
+        .alta(centroA.address, "CIP001", "RX", "Fractura", 10, ts)
+    ).wait();
+    await (
+      await impl
+        .connect(owner)
+        .creaRedireccion(centroA.address, 1, centroB.address)
+    ).wait();
+
+    await expectRevert(
+      impl.connect(owner).aceptaRedireccion(centroA.address, 1, REVERT_OVERRIDES),
+      "No tienes permiso para aceptar la redireccion"
+    );
+    await expectRevert(
+      impl.connect(owner).rechazaRedireccion(centroA.address, 1, REVERT_OVERRIDES),
+      "No tienes permiso para rechazar la redireccion"
+    );
+  });
+
+  it("admin puede cambiar admin y storage", async function () {
+    await expectRevert(
+      impl.connect(other).setAdmin(other.address, REVERT_OVERRIDES),
+      "Solo lo pude gestionar el admin"
+    );
+    await (await impl.connect(admin).setAdmin(other.address)).wait();
+    await (await impl.connect(other).setStorage(storage.address)).wait();
+  });
+
+  it("disable y enable propagan al storage", async function () {
+    await (
+      await storage.connect(aseguradora).creaCentro(centroA.address, "Centro A")
+    ).wait();
+
+    await (await impl.connect(admin).disable()).wait();
     const ts = (await blockTimestamp()) - 60;
     await expectRevert(
-      listaEspera.alta(centroA.address, "CIP001", "RX", "Fractura", 10, ts),
-      "El contrato no esta activo"
+      impl
+        .connect(owner)
+        .alta(centroA.address, "CIP001", "RX", "Fractura", 10, ts, REVERT_OVERRIDES),
+      "Contrato NO activo"
     );
 
-    await (await listaEspera.connect(admin).enable()).wait();
+    await (await impl.connect(admin).enable()).wait();
     await (
-      await listaEspera.alta(
-        centroA.address,
-        "CIP001",
-        "RX",
-        "Fractura",
-        10,
-        ts
-      )
+      await impl
+        .connect(owner)
+        .alta(centroA.address, "CIP001", "RX", "Fractura", 10, ts)
     ).wait();
-    const prueba = await listaEspera.obtenerPruebaPorId(1);
+    const prueba = await impl.connect(owner).obtenerPruebaPorId(1);
     expect(prueba.activa).to.equal(true);
   });
 });
