@@ -169,7 +169,7 @@ contract ListaEsperaImpl is IListaEspera{
         return gestorStorage.listaCentros();
     }
 
-    function creaCentro(address _sender, address _centro, string calldata _nombre ) external override onlyOwner{
+    function creaCentro(address _sender, address _centro, string calldata _nombre ) external override onlyOwner contratoActivo  {
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
         gestorStorage.creaCentro(_sender, _centro, _nombre );
     }
