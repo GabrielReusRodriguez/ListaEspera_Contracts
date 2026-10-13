@@ -117,12 +117,16 @@ async function deployImplStack(ownerSigner, adminSigner, aseguradoraSigner) {
   return { impl, storage, centros };
 }
 
-async function crearCentrosAB(storage, aseguradora, centroA, centroB) {
+async function crearCentrosAB(impl, owner, aseguradora, centroA, centroB) {
   await (
-    await storage.connect(aseguradora).creaCentro(centroA.address, "Centro A")
+    await impl
+      .connect(owner)
+      .creaCentro(aseguradora.address, centroA.address, "Centro A")
   ).wait();
   await (
-    await storage.connect(aseguradora).creaCentro(centroB.address, "Centro B")
+    await impl
+      .connect(owner)
+      .creaCentro(aseguradora.address, centroB.address, "Centro B")
   ).wait();
 }
 
@@ -150,7 +154,7 @@ describe("ListaEsperaImpl", function () {
 
   it("solo el owner puede ejecutar la logica de negocio", async function () {
     await (
-      await storage.connect(aseguradora).creaCentro(centroA.address, "Centro A")
+      await impl.connect(owner).creaCentro(aseguradora.address, centroA.address, "Centro A")
     ).wait();
 
     const ts = (await blockTimestamp()) - 60;
@@ -163,7 +167,7 @@ describe("ListaEsperaImpl", function () {
   });
 
   it("alta, consultas, redireccion y baja via owner", async function () {
-    await crearCentrosAB(storage, aseguradora, centroA, centroB);
+    await crearCentrosAB(impl, owner, aseguradora, centroA, centroB);
 
     const ts = (await blockTimestamp()) - 120;
     await (
@@ -215,7 +219,7 @@ describe("ListaEsperaImpl", function () {
   });
 
   it("rechaza redireccion via impl", async function () {
-    await crearCentrosAB(storage, aseguradora, centroA, centroB);
+    await crearCentrosAB(impl, owner, aseguradora, centroA, centroB);
 
     const ts = (await blockTimestamp()) - 60;
     await (
@@ -238,7 +242,7 @@ describe("ListaEsperaImpl", function () {
   });
 
   it("solo el centro destino puede aceptar o rechazar", async function () {
-    await crearCentrosAB(storage, aseguradora, centroA, centroB);
+    await crearCentrosAB(impl, owner, aseguradora, centroA, centroB);
 
     const ts = (await blockTimestamp()) - 60;
     await (
@@ -273,7 +277,7 @@ describe("ListaEsperaImpl", function () {
 
   it("disable y enable propagan al storage", async function () {
     await (
-      await storage.connect(aseguradora).creaCentro(centroA.address, "Centro A")
+      await impl.connect(owner).creaCentro(aseguradora.address, centroA.address, "Centro A")
     ).wait();
 
     await (await impl.connect(admin).disable()).wait();

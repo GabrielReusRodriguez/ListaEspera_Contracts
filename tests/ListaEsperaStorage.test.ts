@@ -123,8 +123,8 @@ describe("ListaEsperaStorage", function () {
   it("permite a la aseguradora crear centros", async function () {
     await (
       await storage
-        .connect(aseguradora)
-        .creaCentro(centroA.address, "Centro A")
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroA.address, "Centro A")
     ).wait();
 
     const lista = await centros.getCentros();
@@ -136,16 +136,22 @@ describe("ListaEsperaStorage", function () {
     await expectRevert(
       storage
         .connect(other)
-        .creaCentro(centroA.address, "Centro A", REVERT_OVERRIDES),
-      "Solo la aseguradora puede ejecutar la funcionalidad"
+        .creaCentro(aseguradora.address, centroA.address, "Centro A", REVERT_OVERRIDES),
+      "Solo el ownwe puede ejecutar la funcionalidad"
+    );
+    await expectRevert(
+      storage
+        .connect(owner)
+        .creaCentro(other.address, centroA.address, "Centro A", REVERT_OVERRIDES),
+      "Solo puede agregar centros la aseguradora"
     );
   });
 
   it("alta, listados y consulta de prueba diagnostica", async function () {
     await (
       await storage
-        .connect(aseguradora)
-        .creaCentro(centroA.address, "Centro A")
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroA.address, "Centro A")
     ).wait();
 
     const ts = (await blockTimestamp()) - 60;
@@ -212,13 +218,13 @@ describe("ListaEsperaStorage", function () {
   it("crea, lista y acepta una redireccion", async function () {
     await (
       await storage
-        .connect(aseguradora)
-        .creaCentro(centroA.address, "Centro A")
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroA.address, "Centro A")
     ).wait();
     await (
       await storage
-        .connect(aseguradora)
-        .creaCentro(centroB.address, "Centro B")
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroB.address, "Centro B")
     ).wait();
 
     const ts = (await blockTimestamp()) - 60;
@@ -263,13 +269,13 @@ describe("ListaEsperaStorage", function () {
   it("rechaza una redireccion pendiente", async function () {
     await (
       await storage
-        .connect(aseguradora)
-        .creaCentro(centroA.address, "Centro A")
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroA.address, "Centro A")
     ).wait();
     await (
       await storage
-        .connect(aseguradora)
-        .creaCentro(centroB.address, "Centro B")
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroB.address, "Centro B")
     ).wait();
 
     const ts = (await blockTimestamp()) - 60;
@@ -301,8 +307,8 @@ describe("ListaEsperaStorage", function () {
   it("da de baja una prueba diagnostica", async function () {
     await (
       await storage
-        .connect(aseguradora)
-        .creaCentro(centroA.address, "Centro A")
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroA.address, "Centro A")
     ).wait();
 
     const tsAlta = (await blockTimestamp()) - 120;
@@ -346,8 +352,8 @@ describe("ListaEsperaStorage", function () {
   it("desactiva y reactiva storage y gestores hijos", async function () {
     await (
       await storage
-        .connect(aseguradora)
-        .creaCentro(centroA.address, "Centro A")
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroA.address, "Centro A")
     ).wait();
 
     await (await storage.connect(admin).disable()).wait();
@@ -387,8 +393,8 @@ describe("ListaEsperaStorage", function () {
   it("exporta pruebas diagnosticas para el admin", async function () {
     await (
       await storage
-        .connect(aseguradora)
-        .creaCentro(centroA.address, "Centro A")
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroA.address, "Centro A")
     ).wait();
 
     const ts = (await blockTimestamp()) - 60;
