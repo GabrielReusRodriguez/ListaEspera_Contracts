@@ -181,7 +181,7 @@ contract ListaEspera is IListaEsperaEvents{
         return implementation.listaCentros();
     }
 
-    function creaCentro(address _centro, string calldata _nombre ) external {
+    function creaCentro(address _centro, string calldata _nombre ) external contratoActivo {
         IListaEspera implementation = _impl();
         
         implementation.creaCentro(msg.sender, _centro, _nombre );
