@@ -228,7 +228,8 @@ contract ListaEsperaStoragePruebasDiagnosticas{
             for (uint i = 0; i < pruebasDePaciente.length; i++ ) {
                 PruebaDiagnostica memory prueba = pruebasDiagnosticas[pruebasDePaciente[i]]; 
                 if (compareStrings(prueba.diagnostico, _diagnostico) && 
-                    compareStrings(prueba.codigoPrueba, _codigoPrueba)) {
+                    compareStrings(prueba.codigoPrueba, _codigoPrueba) && 
+                    prueba.activa == true) {
                     return true;
                 }
             }

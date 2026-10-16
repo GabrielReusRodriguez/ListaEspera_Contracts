@@ -16,6 +16,8 @@ import { deploy } from './ethers-lib'
     const signer = (new ethers.providers.Web3Provider(web3Provider)).getSigner()
     const admin = await signer.getAddress()
     console.log(`admin (deployer): ${admin}`)
+    const aseguradora = admin;
+    console.log(`aseguradora: ${aseguradora}`)
 
     // 1. Proxy
     const listaEspera = await deploy('ListaEspera', [admin])
@@ -59,6 +61,8 @@ import { deploy } from './ethers-lib'
     await tx.wait()
     console.log('ListaEsperaStorage.setGestorRedirecciones OK')
 
+    listaEsperaStorage.setAseguradora(aseguradora);
+
     console.log('--- deploy complete ---')
     console.log(`ListaEspera: ${listaEspera.address}`)
     console.log(`ListaEsperaImpl: ${listaEsperaImpl.address}`)
@@ -66,6 +70,8 @@ import { deploy } from './ethers-lib'
     console.log(`ListaEsperaStorageCentros: ${storageCentros.address}`)
     console.log(`ListaEsperaStoragePruebasDiagnosticas: ${storagePruebas.address}`)
     console.log(`ListaEsperaStorageRedirecciones: ${storageRedirecciones.address}`)
+
+
   } catch (e) {
     console.log(e.message)
   }
