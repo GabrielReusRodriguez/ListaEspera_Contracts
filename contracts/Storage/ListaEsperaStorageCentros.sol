@@ -105,7 +105,7 @@ contract ListaEsperaStorageCentros{
 
     function activaCentro(address _centroAddress) public onlyOwner activeContract {
         //require(_sender == aseguradora, "Solo la aseguradora puede gestionar los centros");
-        require(_checkIfCentroExiste(_centroAddress) == false, "EL centro que intentas agregar NO esta en la lista");
+        require(_checkIfCentroExiste(_centroAddress) == true, "EL centro que intentas activar NO esta en la lista");
         
         for ( uint i = 0; i < centros.length; i++) {
             if (centros[i].direccion == _centroAddress) {
@@ -117,7 +117,7 @@ contract ListaEsperaStorageCentros{
 
     function desactivaCentro(address _centroAddress) public onlyOwner activeContract {
         //require(_sender == aseguradora, "Solo la aseguradora puede gestionar los centros");
-        require(_checkIfCentroExiste(_centroAddress) == false, "EL centro que intentas agregar NO esta en la lista");
+        require(_checkIfCentroExiste(_centroAddress) == true, "EL centro que intentas desactivar NO esta en la lista");
 
         // requiere que el centro no tenga ninguna derivacion activa ni ni tampoco solicitudes pendientes de responder.
   //      require( _esCentroConPacientesPendientes(_centroAddress) == true, "El centro aun no puede ser elminiado , ha de revisar sus pruebas");    

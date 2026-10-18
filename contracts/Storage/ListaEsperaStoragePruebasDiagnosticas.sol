@@ -228,7 +228,8 @@ contract ListaEsperaStoragePruebasDiagnosticas{
             for (uint i = 0; i < pruebasDePaciente.length; i++ ) {
                 PruebaDiagnostica memory prueba = pruebasDiagnosticas[pruebasDePaciente[i]]; 
                 if (compareStrings(prueba.diagnostico, _diagnostico) && 
-                    compareStrings(prueba.codigoPrueba, _codigoPrueba)) {
+                    compareStrings(prueba.codigoPrueba, _codigoPrueba) && 
+                    prueba.activa == true) {
                     return true;
                 }
             }
@@ -250,7 +251,7 @@ contract ListaEsperaStoragePruebasDiagnosticas{
         PruebaDiagnostica[] memory pruebas = new PruebaDiagnostica[] (nextIdPrueba);
         //OJO!! que la primera prueba qye introducimos tiene id 1.
         for (uint i = 1; i <= nextIdPrueba; i++) {
-            pruebas[i] = pruebasDiagnosticas[i];
+            pruebas[i - 1] = pruebasDiagnosticas[i];
         }
         return pruebas;
     }

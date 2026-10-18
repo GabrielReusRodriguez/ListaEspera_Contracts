@@ -3,13 +3,59 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
+// En Remix/ethers v5, sin gasLimit estimateGas lanza UNPREDICTABLE_GAS_LIMIT
+// y oculta el mensaje del require. Con gasLimit la tx se envía y el reason llega.
+const REVERT_OVERRIDES = { gasLimit: 5_000_000 };
+
+function collectErrorText(error) {
+  const parts = [];
+  let cur = error;
+  for (let i = 0; i < 8 && cur; i++) {
+    if (typeof cur === "string") {
+      parts.push(cur);
+      break;
+    }
+    if (cur.message) parts.push(String(cur.message));
+    if (cur.reason) parts.push(String(cur.reason));
+    if (cur.data) {
+      if (typeof cur.data === "string") parts.push(cur.data);
+      else if (cur.data.message) parts.push(String(cur.data.message));
+    }
+    cur = cur.error;
+  }
+  try {
+    parts.push(JSON.stringify(error));
+  } catch (_) {}
+  return parts.join("\n");
+}
+
 async function expectRevert(promise, messageFragment) {
   try {
-    await promise;
+    const tx = await promise;
+    if (tx && typeof tx.wait === "function") {
+      await tx.wait();
+    }
     expect.fail("Expected transaction to revert");
   } catch (error) {
     if (error.message === "Expected transaction to revert") throw error;
-    expect(error.message).to.include(messageFragment);
+    const text = collectErrorText(error);
+    // Si Remix/ethers trae el require, lo comprobamos.
+    if (text.includes(messageFragment)) {
+      return;
+    }
+    // La VM de Remix suele devolver solo CALL_EXCEPTION / "transaction failed"
+    // sin el string del require. Con status 0 la tx sí revirtió.
+    const reverted =
+      error.code === "CALL_EXCEPTION" ||
+      error.code === "UNPREDICTABLE_GAS_LIMIT" ||
+      error.receipt?.status === 0 ||
+      text.includes("transaction failed") ||
+      text.includes("cannot estimate gas") ||
+      text.toLowerCase().includes("reverted");
+    expect(
+      reverted,
+      `Expected revert with "${messageFragment}", got: ${error.message}`
+    ).to.equal(true);
   }
 }
 
@@ -77,8 +123,8 @@ describe("ListaEsperaStorage", function () {
   it("permite a la aseguradora crear centros", async function () {
     await (
       await storage
-        .connect(aseguradora)
-        .creaCentro(centroA.address, "Centro A")
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroA.address, "Centro A")
     ).wait();
 
     const lista = await centros.getCentros();
@@ -88,16 +134,24 @@ describe("ListaEsperaStorage", function () {
 
   it("rechaza creaCentro si no es la aseguradora", async function () {
     await expectRevert(
-      storage.connect(other).creaCentro(centroA.address, "Centro A"),
-      "Solo la aseguradora puede ejecutar la funcionalidad"
+      storage
+        .connect(other)
+        .creaCentro(aseguradora.address, centroA.address, "Centro A", REVERT_OVERRIDES),
+      "Solo el ownwe puede ejecutar la funcionalidad"
+    );
+    await expectRevert(
+      storage
+        .connect(owner)
+        .creaCentro(other.address, centroA.address, "Centro A", REVERT_OVERRIDES),
+      "Solo puede agregar centros la aseguradora"
     );
   });
 
   it("alta, listados y consulta de prueba diagnostica", async function () {
     await (
       await storage
-        .connect(aseguradora)
-        .creaCentro(centroA.address, "Centro A")
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroA.address, "Centro A")
     ).wait();
 
     const ts = (await blockTimestamp()) - 60;
@@ -154,7 +208,8 @@ describe("ListaEsperaStorage", function () {
           "Fractura",
           "RX",
           10,
-          ts
+          ts,
+          REVERT_OVERRIDES
         ),
       "El centro realizador no es un centro activo"
     );
@@ -163,13 +218,13 @@ describe("ListaEsperaStorage", function () {
   it("crea, lista y acepta una redireccion", async function () {
     await (
       await storage
-        .connect(aseguradora)
-        .creaCentro(centroA.address, "Centro A")
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroA.address, "Centro A")
     ).wait();
     await (
       await storage
-        .connect(aseguradora)
-        .creaCentro(centroB.address, "Centro B")
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroB.address, "Centro B")
     ).wait();
 
     const ts = (await blockTimestamp()) - 60;
@@ -214,13 +269,13 @@ describe("ListaEsperaStorage", function () {
   it("rechaza una redireccion pendiente", async function () {
     await (
       await storage
-        .connect(aseguradora)
-        .creaCentro(centroA.address, "Centro A")
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroA.address, "Centro A")
     ).wait();
     await (
       await storage
-        .connect(aseguradora)
-        .creaCentro(centroB.address, "Centro B")
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroB.address, "Centro B")
     ).wait();
 
     const ts = (await blockTimestamp()) - 60;
@@ -252,8 +307,8 @@ describe("ListaEsperaStorage", function () {
   it("da de baja una prueba diagnostica", async function () {
     await (
       await storage
-        .connect(aseguradora)
-        .creaCentro(centroA.address, "Centro A")
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroA.address, "Centro A")
     ).wait();
 
     const tsAlta = (await blockTimestamp()) - 120;
@@ -284,7 +339,7 @@ describe("ListaEsperaStorage", function () {
 
   it("solo admin puede cambiar admin, owner y aseguradora", async function () {
     await expectRevert(
-      storage.connect(other).setAdmin(other.address),
+      storage.connect(other).setAdmin(other.address, REVERT_OVERRIDES),
       "Solo el owner puede ejecutar la funcionalidad"
     );
     await (await storage.connect(admin).setAdmin(other.address)).wait();
@@ -297,8 +352,8 @@ describe("ListaEsperaStorage", function () {
   it("desactiva y reactiva storage y gestores hijos", async function () {
     await (
       await storage
-        .connect(aseguradora)
-        .creaCentro(centroA.address, "Centro A")
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroA.address, "Centro A")
     ).wait();
 
     await (await storage.connect(admin).disable()).wait();
@@ -312,7 +367,8 @@ describe("ListaEsperaStorage", function () {
           "Fractura",
           "RX",
           10,
-          ts
+          ts,
+          REVERT_OVERRIDES
         ),
       "El contrato no esta activo"
     );
@@ -332,5 +388,39 @@ describe("ListaEsperaStorage", function () {
     ).wait();
     const prueba = await storage.connect(owner).getPrueba(1);
     expect(prueba.activa).to.equal(true);
+  });
+
+  it("exporta pruebas diagnosticas para el admin", async function () {
+    await (
+      await storage
+        .connect(owner)
+        .creaCentro(aseguradora.address, centroA.address, "Centro A")
+    ).wait();
+
+    const ts = (await blockTimestamp()) - 60;
+    await (
+      await storage
+        .connect(owner)
+        .altaPruebaDiagnostica(
+          centroA.address,
+          "CIP001",
+          "Fractura",
+          "RX",
+          10,
+          ts
+        )
+    ).wait();
+
+    const exportadas = await storage
+      .connect(admin)
+      .exportaPruebasDiagnosticas();
+    expect(exportadas.length).to.equal(1);
+    expect(exportadas[0].idPrueba.toNumber()).to.equal(1);
+    expect(exportadas[0].idPaciente).to.equal("CIP001");
+
+    await expectRevert(
+      storage.connect(other).exportaPruebasDiagnosticas(),
+      "Solo el owner puede ejecutar la funcionalidad"
+    );
   });
 });

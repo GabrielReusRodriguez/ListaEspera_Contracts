@@ -118,6 +118,9 @@ contract ListaEsperaImpl is IListaEspera{
     ) external override contratoActivo onlyOwner {
 
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
+        PruebaDiagnostica memory prueba  = gestorStorage.getPrueba(_idPrueba);
+        require(_solicitante == prueba.centroDestinoRedireccion, "No tienes permiso para aceptar la redireccion");
+
         gestorStorage.aceptaRedireccion(_solicitante, _idPrueba);
     }
     
@@ -127,6 +130,9 @@ contract ListaEsperaImpl is IListaEspera{
     ) external override contratoActivo onlyOwner {
 
         ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
+        PruebaDiagnostica memory prueba  = gestorStorage.getPrueba(_idPrueba);
+        require(_solicitante == prueba.centroDestinoRedireccion, "No tienes permiso para rechazar la redireccion");
+
         gestorStorage.rechazaRedireccion(_solicitante, _idPrueba);
     }
 
@@ -157,4 +163,16 @@ contract ListaEsperaImpl is IListaEspera{
         activo = false;
 
     }
+
+    function listaCentros() external view override returns (Centro[] memory) {
+        ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
+        return gestorStorage.listaCentros();
+    }
+
+    function creaCentro(address _sender, address _centro, string calldata _nombre ) external override onlyOwner contratoActivo  {
+        ListaEsperaStorage gestorStorage = ListaEsperaStorage(addrStorage);
+        gestorStorage.creaCentro(_sender, _centro, _nombre );
+    }
+
+
 }
