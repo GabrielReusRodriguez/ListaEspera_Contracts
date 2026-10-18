@@ -41,6 +41,7 @@ contract ListaEspera is IListaEsperaEvents{
         require(_admin != address(0), "admin es zero");
         admin = _admin;
         activo = true;
+        emit DeployContract();
     }
 
     // Esta funcion genera una instancia de algo que implementa IListaEspera. De esta forma nos ahorramos llamar

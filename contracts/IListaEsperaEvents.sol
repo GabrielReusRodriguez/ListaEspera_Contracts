@@ -34,6 +34,14 @@ interface IListaEsperaEvents {
         uint16 maximoDiasDemora
         );
 
+
+    /* Evento que lanzamos cuando se hace deploy del contract para tener una orientacion del bloque a partirt
+    del cual se publican eventos.
+    
+    Se ejecutará en el constructor de ListaEspera.
+    */
+    event DeployContract ();
+
     /*
         Evento que nos sirve para indicar que se ha creado una petición de redireccion. Los campos topic que usaremos serán:
             - pruebaId: identificador único de la prueba
